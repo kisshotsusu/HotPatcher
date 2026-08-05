@@ -18,12 +18,7 @@
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 
-#if WITH_PACKAGE_CONTEXT
 	#include "UObject/SavePackage.h"
-	#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 25
-	 #include "Serialization/BulkDataManifest.h"
-	#endif
-#endif
 
 #include "FlibHotPatcherCoreHelper.generated.h"
 
@@ -84,19 +79,15 @@ public:
 	static FString GetAssetCookedSavePath(const FString& BaseDir, const FString PacakgeName, const FString& Platform,bool bSkipPlatform = false);
 
 	static FString GetProjectCookedDir();
-#if WITH_PACKAGE_CONTEXT
 	static FSavePackageContext* CreateSaveContext(const ITargetPlatform* TargetPlatform,bool bUseZenLoader,const FString& OverrideCookedDir);
 	static TMap<ETargetPlatform,TSharedPtr<FSavePackageContext>> CreatePlatformsPackageContexts(const TArray<ETargetPlatform>& Platforms,bool bIoStore,const FString& OverrideCookedDir);
 	static bool SavePlatformBulkDataManifest(TMap<ETargetPlatform, TSharedPtr<FSavePackageContext>>&PlatformSavePackageContexts,ETargetPlatform Platform);
-#endif
 
 	static bool CookPackages(
 		const TArray<UPackage*> Packages,
 		TMap<ETargetPlatform,ITargetPlatform*> CookPlatforms,
 		FCookActionCallback CookActionCallback,
-	#if WITH_PACKAGE_CONTEXT
 		class TMap<FString,FSavePackageContext*> PlatformSavePackageContext,
-	#endif
 		const TMap<FName,FString>& CookedPlatformSavePaths,
 		bool bStorageConcurrent
 	);
@@ -105,9 +96,7 @@ public:
 		UPackage* Package,
 		TMap<ETargetPlatform,ITargetPlatform*> CookPlatforms,
 		FCookActionCallback CookActionCallback,
-#if WITH_PACKAGE_CONTEXT
 		class TMap<FString,FSavePackageContext*> PlatformSavePackageContext,
-#endif
 		const TMap<FName,FString>& CookedPlatformSavePaths,
 		bool bStorageConcurrent
 	);
@@ -132,9 +121,7 @@ public:
 		TArray<FAssetDetail> Assets,
 		const TArray<ETargetPlatform>& Platforms,
 		FCookActionCallback CookActionCallback,
-#if WITH_PACKAGE_CONTEXT
 		class TMap<ETargetPlatform,FSavePackageContext*> PlatformSavePackageContext = TMap<ETargetPlatform,FSavePackageContext*>{},
-#endif
 		const FString& InSavePath = FPaths::Combine(FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()),TEXT("Cooked"))
 	);
 	

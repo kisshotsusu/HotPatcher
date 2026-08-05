@@ -9,7 +9,7 @@
 #include "IPlatformFileSandboxWrapper.h"
 #include "Interfaces/IPluginManager.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "Misc/EngineVersionComparison.h"
+#include "RHI.h"
 
 #define REMAPPED_PLUGINS TEXT("RemappedPlugins")
 
@@ -82,7 +82,6 @@ FString UFlibShaderCodeLibraryHelper::StableExtension = TEXT(".scl.csv");
 // 	FShaderCodeLibrary::Shutdown();
 // }
 
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
 TArray<SHADER_COOKER_CLASS::FShaderFormatDescriptor> UFlibShaderCodeLibraryHelper::GetShaderFormatsWithStableKeys(
 	const TArray<FName>& ShaderFormats,bool bNeedShaderStableKeys/* = true*/,bool bNeedsDeterministicOrder/* = true*/)
 {
@@ -97,7 +96,6 @@ TArray<SHADER_COOKER_CLASS::FShaderFormatDescriptor> UFlibShaderCodeLibraryHelpe
 	}
 	return ShaderFormatsWithStableKeys;
 }
-#endif
 
 TArray<FName> UFlibShaderCodeLibraryHelper::GetShaderFormatsByTargetPlatform(ITargetPlatform* TargetPlatform)
 {
@@ -121,31 +119,11 @@ bool UFlibShaderCodeLibraryHelper::SaveShaderLibrary(const ITargetPlatform* Targ
 		FString TargetPlatformName = TargetPlatform->PlatformName();
 		TArray<FString> PlatformSCLCSVPaths;// = OutSCLCSVPaths.FindOrAdd(FName(TargetPlatformName));
 		
-		#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
 		FString ErrorString;
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 		bool bOutHasData = false;
-#endif
-		bSaved = SHADER_COOKER_CLASS::SaveShaderLibraryWithoutChunking(TargetPlatform, Name, ShaderCodeDir, RootMetaDataPath, PlatformSCLCSVPaths, ErrorString
-#if !UE_VERSION_OLDER_THAN(5,1,0)
+		bSaved = SHADER_COOKER_CLASS::SaveShaderLibraryWithoutChunking(TargetPlatform, Name, ShaderCodeDir, RootMetaDataPath, PlatformSCLCSVPaths, UE::Cook::EPackagingSystem::Loose, ErrorString
 		,bOutHasData
-#endif
 		);
-#else
-		TArray<TSet<FName>> ChunkAssignments;
-		bSaved = FShaderCodeLibrary::SaveShaderCode(ShaderCodeDir, RootMetaDataPath, ShaderFormats, PlatformSCLCSVPaths, &ChunkAssignments);
-#endif
-#else
-		if(bMaster)
-		{
-			bSaved = FShaderCodeLibrary::SaveShaderCodeMaster(ShaderCodeDir, RootMetaDataPath, ShaderFormats, PlatformSCLCSVPaths);
-		}
-		else
-		{
-			bSaved = FShaderCodeLibrary::SaveShaderCodeChild(ShaderCodeDir, RootMetaDataPath, ShaderFormats);
-		}
-#endif	
 	}
 	return bSaved;
 }
@@ -261,9 +239,7 @@ void UFlibShaderCodeLibraryHelper::CleanShaderWorkerDir()
 	}
 }
 
-#if !UE_VERSION_OLDER_THAN(5,2,0)
 #include "DataDrivenShaderPlatformInfo.h"
-#endif
 bool UFlibShaderCodeLibraryHelper::RHISupportsNativeShaderLibraries(const FStaticShaderPlatform Platform)
 {
 	return ::RHISupportsNativeShaderLibraries(Platform);;
@@ -276,7 +252,7 @@ void UFlibShaderCodeLibraryHelper::CancelMaterialShaderCompile(UMaterialInterfac
 		UMaterial* Material = MaterialInterface->GetMaterial();
 		for (int32 FeatureLevel = 0; FeatureLevel < ERHIFeatureLevel::Num; ++FeatureLevel)
 		{
-			if (FMaterialResource* Res = Material->GetMaterialResource((ERHIFeatureLevel::Type)FeatureLevel))
+			if (FMaterialResource* Res = Material->GetMaterialResource(GetFeatureLevelShaderPlatform((ERHIFeatureLevel::Type)FeatureLevel)))
 			{
 				Res->CancelCompilation();
 			}

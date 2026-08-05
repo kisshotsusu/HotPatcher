@@ -15,6 +15,25 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "FlibAssetManageHelper.generated.h"
 
+// UE 5.8 removed the deprecated EAssetRegistryDependencyType declaration.
+// HotPatcher only keeps these values as its own legacy query representation;
+// modern AssetRegistry calls below use EDependencyCategory directly.
+namespace EAssetRegistryDependencyType
+{
+	enum Type : uint8
+	{
+		None = 0x00,
+		Soft = 0x01,
+		Hard = 0x02,
+		SearchableName = 0x04,
+		SoftManage = 0x08,
+		HardManage = 0x10,
+		Packages = Soft | Hard,
+		Manage = SoftManage | HardManage,
+		All = Soft | Hard | SearchableName | SoftManage | HardManage
+	};
+}
+
 #define JSON_MODULE_LIST_SECTION_NAME TEXT("ModuleList")
 #define JSON_ALL_INVALID_ASSET_SECTION_NAME TEXT("InValidAsset")
 #define JSON_ALL_ASSETS_LIST_SECTION_NAME TEXT("AssetsList")

@@ -35,9 +35,7 @@
 #include "Serialization/ArrayWriter.h"
 #include "ThreadUtils/FProcWorkerThread.hpp"
 
-#if WITH_IO_STORE_SUPPORT
 #include "IoStoreUtilities.h"
-#endif
 
 #define LOCTEXT_NAMESPACE "HotPatcherProxy"
 
@@ -149,7 +147,7 @@ namespace PatchWorker
 		static bool IsAssetContainIn(const FAssetDependenciesInfo& InAssetInfo,const FAssetDetail& InAssetDetail)
 		{
 			bool bContainInBaseVersion = false;
-			FSoftObjectPath SoftObjectPath{InAssetDetail.PackagePath};
+			FSoftObjectPath SoftObjectPath(InAssetDetail.PackagePath.ToString());
 			FAssetDetail BaseAssetDetail;
 			bool bHasInBase = InAssetInfo.GetAssetDetailByPackageName(SoftObjectPath.GetLongPackageName(),BaseAssetDetail);
 			if(bHasInBase)
@@ -192,13 +190,11 @@ void UPatcherProxy::Init(FPatcherEntitySettingBase* InSetting)
 {
 	SCOPED_NAMED_EVENT_TEXT("UPatcherProxy::Init",FColor::Red);
 	Super::Init(InSetting);
-#if WITH_PACKAGE_CONTEXT
 	PlatformSavePackageContexts = UFlibHotPatcherCoreHelper::CreatePlatformsPackageContexts(
 		GetSettingObject()->GetPakTargetPlatforms(),
 		GetSettingObject()->IoStoreSettings.bIoStore,
 		GetSettingObject()->GetStorageCookedDir()
 		);
-#endif
 	UFlibAssetManageHelper::UpdateAssetMangerDatabase(true);
 	GetSettingObject()->Init();
 	ADD_PATCH_WORKER(PatchWorker::BaseVersionReader);
@@ -640,10 +636,8 @@ namespace PatchWorker
 						
 						FString ChunkSavedDir = Context.GetSettingObject()->GetChunkSavedDir(Context.CurrentVersion.VersionId,Context.CurrentVersion.BaseVersionId,Chunk.ChunkName,PlatformName);
 						EmptySetting.StorageMetadataDir = FPaths::Combine(ChunkSavedDir,TEXT("Metadatas"));
-#if WITH_PACKAGE_CONTEXT
 						EmptySetting.bOverrideSavePackageContext = true;
 						EmptySetting.PlatformSavePackageContexts = Context.PatchProxy->GetPlatformSavePackageContexts();
-#endif
 						USingleCookerProxy* SingleCookerProxy = NewObject<USingleCookerProxy>();
 						SingleCookerProxy->AddToRoot();
 						SingleCookerProxy->Init(&EmptySetting);
@@ -651,7 +645,7 @@ namespace PatchWorker
 						const FCookCluster& AdditionalCluster = SingleCookerProxy->GetPackageTrackerAsCluster(false);
 						for(const auto& AssetDetail:AdditionalCluster.AssetDetails)
 						{
-							FSoftObjectPath ObjectPath{AssetDetail.PackagePath};
+							FSoftObjectPath ObjectPath(AssetDetail.PackagePath.ToString());
 							bool bContainInBaseVersion = FTrackPackageAction::IsAssetContainIn(Context.BaseVersion.AssetInfo,AssetDetail);
 							
 							FString ReceiveReason;
@@ -669,7 +663,6 @@ namespace PatchWorker
 						SingleCookerProxy->Shutdown();
 						SingleCookerProxy->RemoveFromRoot();
 
-#if WITH_UE5_BY_COOKCMDLT // add WP additional
 						TSet<FName> WorldPackages;
 						int32 Size = ChunkAssets.Num();
 						FCriticalSection	LocalSynchronizationObject;
@@ -686,7 +679,7 @@ namespace PatchWorker
 						{
 							FExternDirectoryInfo DirectoryInfo;
 							{
-								FSoftObjectPath ObjectPath{WorldPackage};
+								FSoftObjectPath ObjectPath(WorldPackage.ToString());
 								// abs
 								FString WorldCookedPath = UFlibHotPatcherCoreHelper::GetAssetCookedSavePath(StorageCookedDir,ObjectPath.GetLongPackageName(), PlatformName);
 								FString EndWith = FPaths::GetExtension(WorldCookedPath,true);
@@ -709,7 +702,6 @@ namespace PatchWorker
 								}
 							}
 						}
-#endif
 					}
 				}
 			}
@@ -1209,7 +1201,6 @@ namespace PatchWorker
 	bool CreateIoStoreWorker(FHotPatcherPatchContext& Context)
 	{
 		SCOPED_NAMED_EVENT_TEXT("CreateIoStoreWorker",FColor::Red);
-#if WITH_IO_STORE_SUPPORT
 		if(!Context.GetSettingObject()->GetIoStoreSettings().bIoStore)
 			return true;
 		TimeRecorder CreateAllIoStoreToralTR(FString::Printf(TEXT("Generate all platform Io Store of all chunks Total Time:")));
@@ -1284,11 +1275,7 @@ namespace PatchWorker
 						*PatchDiffCommand
 					)
 				);
-#if ENGINE_MAJOR_VERSION < 5 && ENGINE_MINOR_VERSION < 26
-				FString OutputDirectoryCmd = FString::Printf(TEXT("-OutputDirectory=%s"),*FPaths::Combine(Context.GetSettingObject()->GetSaveAbsPath()));
-#else
 				FString OutputDirectoryCmd = TEXT("");
-#endif
 				FString IoStoreCommandsFile = FPaths::Combine(Chunk.GetPakFileProxys()[0].StorageDirectory,FString::Printf(TEXT("%s_IoStoreCommands.txt"),*Chunk.ChunkName));
 					
 				FString PlatformGlocalContainers;
@@ -1345,7 +1332,6 @@ namespace PatchWorker
 				}
 			}
 		}
-#endif
 		return true;
 	};
 
@@ -1386,7 +1372,7 @@ namespace PatchWorker
 						{
 							bStatus = true;
 
-							FString Msg = FString::Printf(TEXT("Succeed to export New Patch Diff Info."),*SaveDiffToFile);
+							FString Msg = FString::Printf(TEXT("Succeed to export New Patch Diff Info: %s"), *SaveDiffToFile);
 							Context.OnPaking.Broadcast(TEXT("SavePatchDiffInfo"),Msg);
 						}
 					}

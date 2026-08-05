@@ -31,6 +31,8 @@ public:
 
 public:
 
+	~SHotPatcherPatchWidget();
+
 	/**
 	 * Constructs the widget.
 	 *

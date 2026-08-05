@@ -1,17 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-#include "Resources/Version.h"
 #include "ShaderCodeLibrary.h"
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "FlibShaderCodeLibraryHelper.generated.h"
 
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
 	#define SHADER_COOKER_CLASS FShaderLibraryCooker
-#else
-	#define SHADER_COOKER_CLASS FShaderCodeLibrary
-#endif
 
 struct FShaderCodeFormatMap
 {
@@ -46,9 +41,7 @@ class HOTPATCHERCORE_API UFlibShaderCodeLibraryHelper : public UBlueprintFunctio
 {
 	GENERATED_BODY()
 public:
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
 	static TArray<SHADER_COOKER_CLASS::FShaderFormatDescriptor> GetShaderFormatsWithStableKeys(const TArray<FName>& ShaderFormats,bool bNeedShaderStableKeys = true,bool bNeedsDeterministicOrder = false);
-#endif
 	static TArray<FName> GetShaderFormatsByTargetPlatform(ITargetPlatform* TargetPlatform);
 	static FString GenerateShaderCodeLibraryName(FString const& Name, bool bIsIterateSharedBuild);
 	static bool SaveShaderLibrary(const ITargetPlatform* TargetPlatform,TArray<FName> ShaderFormats, FString const& Name, const FString& ShaderCodeDir,const FString& RootMetaDataPath, bool bMaster);

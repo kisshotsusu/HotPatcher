@@ -7,16 +7,11 @@
 #include "ShaderPipelineCache.h"
 #include "RHIShaderFormatDefinitions.inl"
 #include "HAL/IConsoleManager.h"
-#include "Misc/EngineVersionComparison.h"
 
 bool UFlibShaderPipelineCacheHelper::LoadShaderPipelineCache(const FString& Name)
 {
 	// UE_LOG(LogHotPatcher,Display,TEXT("Load Shader pipeline cache %s for platform %d"),*Name,*ShaderPlatformToShaderFormatName(GMaxRHIShaderPlatform).ToString());
-#if UE_VERSION_OLDER_THAN(5,1,0)
-	return FShaderPipelineCache::OpenPipelineFileCache(Name,GMaxRHIShaderPlatform);
-#else
 	return FShaderPipelineCache::OpenPipelineFileCache(GMaxRHIShaderPlatform);
-#endif
 }
 
 bool UFlibShaderPipelineCacheHelper::EnableShaderPipelineCache(bool bEnable)
@@ -32,11 +27,7 @@ bool UFlibShaderPipelineCacheHelper::EnableShaderPipelineCache(bool bEnable)
 
 bool UFlibShaderPipelineCacheHelper::SavePipelineFileCache(EPSOSaveMode Mode)
 {
-#if UE_VERSION_OLDER_THAN(5,1,0)
-	return FShaderPipelineCache::SavePipelineFileCache((FPipelineFileCache::SaveMode)Mode);
-#else
 	return FShaderPipelineCache::SavePipelineFileCache((FPipelineFileCacheManager::SaveMode)Mode);
-#endif
 }
 
 bool UFlibShaderPipelineCacheHelper::EnableLogPSO(bool bEnable)

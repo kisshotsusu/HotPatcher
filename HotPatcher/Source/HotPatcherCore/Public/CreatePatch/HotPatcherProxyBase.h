@@ -31,12 +31,10 @@ protected:
     }
     const TMap<ETargetPlatform,FName>& GetPlatformNameMapping(){ return PlatformNameMapping; }
 public:
-#if WITH_PACKAGE_CONTEXT
     // virtual void InitPlatformPackageContexts();
     FORCEINLINE TMap<ETargetPlatform,TSharedPtr<FSavePackageContext>> GetPlatformSavePackageContexts()const {return PlatformSavePackageContexts;}
     FORCEINLINE TMap<ETargetPlatform,FSavePackageContext*> GetPlatformSavePackageContextsRaw()const;
     TMap<ETargetPlatform,TSharedPtr<FSavePackageContext>> PlatformSavePackageContexts;
-#endif
 
 public:
     FExportPakProcess OnPaking;
@@ -71,7 +69,6 @@ inline void UHotPatcherProxyBase::Shutdown()
 }
 
 
-#if WITH_PACKAGE_CONTEXT
 FORCEINLINE TMap<ETargetPlatform, FSavePackageContext*> UHotPatcherProxyBase::GetPlatformSavePackageContextsRaw() const
 {
     TMap<ETargetPlatform,FSavePackageContext*> result;
@@ -83,4 +80,3 @@ FORCEINLINE TMap<ETargetPlatform, FSavePackageContext*> UHotPatcherProxyBase::Ge
     }
     return result;
 }
-#endif

@@ -2,22 +2,14 @@
 #include "Engine/PrimaryAssetLabel.h"
 #include "HotPatcherEditor.h"
 #include "FlibAssetManageHelper.h"
-#include "Misc/EngineVersionComparison.h"
 
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	typedef FAppStyle FEditorStyle;
-#endif
 
-#if WITH_EDITOR_SECTION
 #include "ToolMenuSection.h"
 void FAssetTypeActions_PrimaryAssetLabel::GetActions(const TArray<UObject*>& InObjects,
 	FToolMenuSection& Section)
 {
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	FName StyleSetName = FEditorStyle::GetAppStyleSetName();
-#else
-	FName StyleSetName = FEditorStyle::GetStyleSetName();
-#endif
 	auto Labels = GetTypedWeakObjectPtrs<UPrimaryAssetLabel>(InObjects);
 	const FSlateIcon Icon = FSlateIcon(StyleSetName, "ContentBrowser.AssetActions.Duplicate");
 	Section.AddMenuEntry(
@@ -159,4 +151,3 @@ void FAssetTypeActions_PrimaryAssetLabel::OnCookAndPakPlatform(ETargetPlatform P
 	FHotPatcherEditorModule::Get().CookAndPakByAssetsAndFilters(GetLabelsAssets(Objects),GetLabelsDirs(Objects),TArray<ETargetPlatform>{Platform},true);
 }
 
-#endif

@@ -3,7 +3,6 @@
 #include "FPlatformExternFiles.h"
 #include "HotPatcherLog.h"
 
-#include "Misc/EngineVersionComparison.h"
 
 FHotPatcherSettingBase::FHotPatcherSettingBase()
 {
@@ -103,9 +102,6 @@ FString FHotPatcherSettingBase::GetCombinedAdditionalCommandletArgs() const
 {
 	FString Result;
 	TArray<FString> Options = GetAdditionalCommandletArgs();
-#if UE_VERSION_OLDER_THAN(5,0,0)
-	Options.AddUnique(TEXT("-NoPostLoadCacheDDC"));
-#endif
 	Result = UFlibPatchParserHelper::MergeOptionsAsCmdline(Options);
 	return Result;
 }

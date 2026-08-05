@@ -15,15 +15,9 @@
 #include "Misc/ScopeExit.h"
 #include "Engine/AssetManager.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "Misc/EngineVersionComparison.h"
-#if WITH_PACKAGE_CONTEXT
 // // engine header
 #include "UObject/SavePackage.h"
-#endif
 
-#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 25
-#include "Serialization/BulkDataManifest.h"
-#endif
 
 
 bool IsAlwayPostLoadClasses(UPackage* Package, UObject* Object)
@@ -72,7 +66,6 @@ void USingleCookerProxy::Init(FPatcherEntitySettingBase* InSetting)
 		FCommandLine::Append(*FString::Printf(TEXT(" %s"),NO_POSTLOAD_CACHE_DDC_OPTION));
 		UE_LOG(LogHotPatcher,Display,TEXT("Append %s to Cmdline."),NO_POSTLOAD_CACHE_DDC_OPTION);
 	}
-#if WITH_PACKAGE_CONTEXT
 	if(GetSettingObject()->bOverrideSavePackageContext)
 	{
 		PlatformSavePackageContexts = GetSettingObject()->PlatformSavePackageContexts;
@@ -85,7 +78,6 @@ void USingleCookerProxy::Init(FPatcherEntitySettingBase* InSetting)
 			GetSettingObject()->GetStorageCookedAbsDir()
 			);
 	}
-#endif
 	InitShaderLibConllections();
 	
 	// cook package tracker
@@ -208,9 +200,7 @@ void USingleCookerProxy::CleanClusterCachedPlatformData(const FCookCluster& Cook
 		GetObjectsWithOuter(Package,ExportMap,true);
 		for(const auto& ExportObj:ExportMap)
 		{
-#if ENGINE_MINOR_VERSION < 26
 			FScopedNamedEvent CacheExportEvent(FColor::Red,*FString::Printf(TEXT("%s"),*ExportObj->GetName()));
-#endif
 			if (ExportObj->HasAnyFlags(RF_Transient))
 			{
 				// UE_LOG(LogHotPatcherCoreHelper, Display, TEXT("%s is PreCached."),*ExportObj->GetFullName());
@@ -218,11 +208,7 @@ void USingleCookerProxy::CleanClusterCachedPlatformData(const FCookCluster& Cook
 			}
 			ExportObj->ClearAllCachedCookedPlatformData();
 		}
-#if ENGINE_MAJOR_VERSION > 4
 		Package->MarkAsGarbage();
-#else
-		Package->MarkPendingKill();
-#endif
 	}
 }
 
@@ -261,7 +247,7 @@ void USingleCookerProxy::PreGeneratePlatformData(const FCookCluster& CookCluster
 						ExportObj->ConditionalPostLoad();
 					}
 				});
-			PreCachePackages.RemoveAtSwap(Index,1,false);
+			PreCachePackages.RemoveAtSwap(Index, 1, EAllowShrinking::No);
 			if(GShaderCompilingManager->IsCompiling())
 			{
 				SCOPED_NAMED_EVENT_TEXT("GShaderCompilingManager::ProcessAsyncResults",FColor::Red);
@@ -350,9 +336,7 @@ void USingleCookerProxy::ExecCookCluster(const FCookCluster& CookCluster,bool bW
 	FString CookBaseDir = GetSettingObject()->GetStorageCookedAbsDir();
 	CleanOldCooked(CookBaseDir,CookCluster.AsSoftObjectPaths(),CookCluster.Platforms);
 	
-#if WITH_PACKAGE_CONTEXT
 	TMap<FString, FSavePackageContext*> SavePackageContextsNameMapping = GetPlatformSavePackageContextsNameMapping();
-#endif
 	
 	TSharedPtr<FClassesPackageTracker> ClassesPackageTracker = MakeShareable(new FClassesPackageTracker);
 	const TArray<FSoftObjectPath>& CookClusterPaths = CookCluster.AsSoftObjectPaths();
@@ -384,9 +368,7 @@ void USingleCookerProxy::ExecCookCluster(const FCookCluster& CookCluster,bool bW
 						PreCachePackages,
 						PlatformMaps,
 						CookCluster.CookActionCallback,
-		#if WITH_PACKAGE_CONTEXT
 						SavePackageContextsNameMapping,
-		#endif
 						CookedPlatformSavePaths,
 						bCanConcurrentSave
 						);
@@ -508,9 +490,7 @@ void USingleCookerProxy::BulkDataManifest()
 	{
 		if(GetSettingObject()->IoStoreSettings.bStorageBulkDataInfo)
 		{
-#if WITH_PACKAGE_CONTEXT
 			UFlibHotPatcherCoreHelper::SavePlatformBulkDataManifest(GetPlatformSavePackageContexts(),Platform);
-#endif
 		}
 	}
 }
@@ -895,7 +875,6 @@ bool USingleCookerProxy::IsFinsihed()
 		!HasValidPackageTracker();
 }
 
-#if WITH_PACKAGE_CONTEXT
 TMap<ETargetPlatform, FSavePackageContext*> USingleCookerProxy::GetPlatformSavePackageContextsRaw()
 {
 	FScopeLock Lock(&SynchronizationObject);
@@ -923,7 +902,6 @@ TMap<FString, FSavePackageContext*> USingleCookerProxy::GetPlatformSavePackageCo
 	}
 	return result;
 }
-#endif
 
 TArray<FName>& USingleCookerProxy::GetPlatformCookAssetOrders(ETargetPlatform Platform)
 {

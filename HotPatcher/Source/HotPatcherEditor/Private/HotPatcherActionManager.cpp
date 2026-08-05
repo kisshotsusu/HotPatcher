@@ -155,7 +155,7 @@ float FHotPatcherActionManager::GetHotPatcherVersion() const
 		FHotPatcherCoreModule::Get().GetMainVersion(),
 		FHotPatcherCoreModule::Get().GetPatchVersion()
 		);
-	return UKismetStringLibrary::Conv_StringToFloat(Version);
+	return FCString::Atof(*Version);
 }
 
 FHotPatcherAction* FHotPatcherActionManager::GetTopActionByCategory(const FString CategoryName)
@@ -273,13 +273,6 @@ void FHotPatcherActionManager::SetupDefaultActions()
 		1
 		);
 	
-#if ENABLE_ORIGINAL_COOKER
-	HotPatcherCoreMod.ModActions.Emplace(
-		TEXT("Cooker"),TEXT("HotPatcherCore"),HOTPATCHEER_CORE_MODENAME,TEXT("Use single-process Cook Content(UE Default)"),
-		CREATE_ACTION_WIDGET_LAMBDA(SOriginalCookWidget,TEXT("ByOriginal")),
-		0
-		);
-#endif
 	BuiltInMods.Add(HotPatcherCoreMod);
 	
 	for(const auto& Mod:BuiltInMods)

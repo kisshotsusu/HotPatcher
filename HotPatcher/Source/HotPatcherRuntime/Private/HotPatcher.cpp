@@ -8,12 +8,12 @@
 
 #define LOCTEXT_NAMESPACE "FHotPatcherRuntimeModule"
 
-bool GForceSingleThread = (bool)FORCE_SINGLE_THREAD;
+bool GForceSingleThread = true;
 
 void FHotPatcherRuntimeModule::StartupModule()
 {
 	UE_LOG(LogHotPatcher,Display,TEXT("HotPatcherRuntime StartupModule"));
-#if AUTOLOAD_SHADERLIB_AT_RUNTIME && !WITH_EDITOR
+#if !WITH_EDITOR
 	UFlibPakHelper::LoadHotPatcherAllShaderLibrarys();
 #endif
 }

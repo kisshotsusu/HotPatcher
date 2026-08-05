@@ -109,7 +109,7 @@ void SHotPatcherCookSetting::DeSerializeFromJsonObj(TSharedPtr<FJsonObject>const
 		SelectedCookSettingList.Add(MakeShareable(new FString(Setting)));
 		GetCookerContextPtr()->AddSelectedSetting(Setting);
 	}
-	ExternSettingTextBox->SetText(UKismetTextLibrary::Conv_StringToText(InJsonObject->GetStringField("Options")));
+	ExternSettingTextBox->SetText(UKismetTextLibrary::Conv_StringToText(InJsonObject->GetStringField(TEXT("Options"))));
 }
 
 

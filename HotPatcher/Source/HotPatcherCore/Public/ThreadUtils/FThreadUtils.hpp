@@ -40,7 +40,10 @@ public:
 	}
 	virtual void Join()
 	{
-		mThread->WaitForCompletion();
+		if (mThread)
+		{
+			mThread->WaitForCompletion();
+		}
 	}
 
 	virtual uint32 Run()override
@@ -73,7 +76,7 @@ public:
 protected:
 	FString mThreadName;
 	FCallback mRunFunc;
-	FRunnableThread* mThread;
+	FRunnableThread* mThread = nullptr;
 	volatile EThreadStatus::Type mThreadStatus;
 
 private:

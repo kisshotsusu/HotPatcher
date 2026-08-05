@@ -1,6 +1,7 @@
 // Copyright 2019 Lipeng Zha, Inc. All Rights Reserved.
 
 #include "HotPatcherEditor.h"
+#include "UObject/ObjectSaveContext.h"
 #include "HotPatcherStyle.h"
 #include "HotPatcherCommands.h"
 #include "SHotPatcher.h"
@@ -27,22 +28,14 @@
 #include "Interfaces/IPluginManager.h"
 #include "Kismet/KismetTextLibrary.h"
 #include "PakFileUtilities.h"
-#include "Misc/EngineVersionComparison.h"
 
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	typedef FAppStyle FEditorStyle;
-#endif
 
-#if ENGINE_MAJOR_VERSION < 5
-#include "Widgets/Docking/SDockableTab.h"
-#endif
 
-#if WITH_EDITOR_SECTION
 #include "ToolMenus.h"
 #include "ToolMenuDelegates.h"
 #include "ContentBrowserMenuContexts.h"
 #include "CreatePatch/AssetActions/AssetTypeActions_PrimaryAssetLabel.h"
-#endif
 
 static const FName HotPatcherTabName("HotPatcher");
 
@@ -73,17 +66,12 @@ void FHotPatcherEditorModule::StartupModule()
 	UE_LOG(LogHotPatcherEdotor,Display,TEXT("FHotPatcherEditorModule StartupModule"));
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 	FHotPatcherStyle::Initialize();
-	FHotPatcherStyle::ReloadTextures();
 	FHotPatcherCommands::Register();
 
 	FHotPatcherActionManager::Get().Init();
 
 	
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	StyleSetName = FEditorStyle::GetAppStyleSetName().ToString();
-#else
-	StyleSetName = FEditorStyle::GetStyleSetName().ToString();
-#endif
 
 	
 	FHotPatcherDelegates::Get().GetNotifyFileGenerated().AddLambda([](FText Msg,const FString& File)
@@ -94,9 +82,7 @@ void FHotPatcherEditorModule::StartupModule()
 	if(::IsRunningCommandlet())
 		return;
 	
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	FCoreUObjectDelegates::OnObjectSaved.AddRaw(this,&FHotPatcherEditorModule::OnObjectSaved);
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	FCoreUObjectDelegates::OnObjectPreSave.AddRaw(this,&FHotPatcherEditorModule::OnObjectPreSave);
 	MakeProjectSettingsForHotPatcher();
 
 	MissionNotifyProay = NewObject<UMissionNotificationProxy>();
@@ -105,23 +91,17 @@ void FHotPatcherEditorModule::StartupModule()
 	PluginCommands = MakeShareable(new FUICommandList);
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 	{
-		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+		MenuExtender = MakeShareable(new FExtender());
 		MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &FHotPatcherEditorModule::AddMenuExtension));
 
 		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
 
-#ifndef DISABLE_PLUGIN_TOOLBAR_MENU
 		// settings
-	 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
-#if ENGINE_MAJOR_VERSION > 4
+	 	ToolbarExtender = MakeShareable(new FExtender);
 		FName ExtensionHook = "Play";
-#else
-		FName ExtensionHook = "Settings";
-#endif
 	 	ToolbarExtender->AddToolBarExtension(ExtensionHook, EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &FHotPatcherEditorModule::AddToolbarExtension));
 		
 	 	LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
-#endif
 	}
 
 	TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
@@ -129,15 +109,13 @@ void FHotPatcherEditorModule::StartupModule()
 	CommandList->UnmapAction(FHotPatcherCommands::Get().CookAndPakSelectedAction);
 	CommandList->UnmapAction(FHotPatcherCommands::Get().AddToPakSettingsAction);
 
-#if WITH_EDITOR_SECTION
 	ExtendContentBrowserAssetSelectionMenu();
 	ExtendContentBrowserPathSelectionMenu();
 	
 	CreateRootMenu();
 
-	FAssetToolsModule::GetModule().Get().RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_PrimaryAssetLabel));
-
-#endif
+	AssetTypeActions = MakeShareable(new FAssetTypeActions_PrimaryAssetLabel);
+	FAssetToolsModule::GetModule().Get().RegisterAssetTypeActions(AssetTypeActions.ToSharedRef());
 }
 
 
@@ -146,9 +124,42 @@ void FHotPatcherEditorModule::ShutdownModule()
 {
 	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
 	// we call this function before unloading the module.
+	FCoreUObjectDelegates::OnObjectPreSave.RemoveAll(this);
+	if (FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
+	{
+		if (MenuExtender.IsValid())
+		{
+			LevelEditorModule->GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+			MenuExtender.Reset();
+		}
+		if (ToolbarExtender.IsValid())
+		{
+			LevelEditorModule->GetToolBarExtensibilityManager()->RemoveExtender(ToolbarExtender);
+			ToolbarExtender.Reset();
+		}
+	}
+	UToolMenus::Get()->UnregisterOwner(this);
+	if (mProcWorkingThread.IsValid())
+	{
+		mProcWorkingThread->Cancel();
+		mProcWorkingThread->Join();
+		mProcWorkingThread.Reset();
+	}
+	if (MissionNotifyProay)
+	{
+		// ShutdownModule runs after the UObject subsystem has already been torn down,
+		// so the rooted proxy object is already destroyed. Calling RemoveFromRoot() here
+		// would dereference a destroyed UObject and assert in UObjectArray::IndexToObject.
+		MissionNotifyProay = nullptr;
+	}
 	FHotPatcherActionManager::Get().Shutdown();
 	FHotPatcherCommands::Unregister();
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(HotPatcherTabName);
+	if (AssetTypeActions.IsValid() && FModuleManager::Get().IsModuleLoaded("AssetTools"))
+	{
+		FAssetToolsModule::GetModule().Get().UnregisterAssetTypeActions(AssetTypeActions.ToSharedRef());
+		AssetTypeActions.Reset();
+	}
 	FHotPatcherStyle::Shutdown();
 }
 
@@ -173,11 +184,7 @@ void FHotPatcherEditorModule::PluginButtonClicked(const FSHotPatcherContext& Con
 	
 	if (!DockTab.IsValid())
 	{
-	#if UE_VERSION_OLDER_THAN(5,4,0)
-		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(HotPatcherTabName, FOnSpawnTab::CreateLambda([=](const class FSpawnTabArgs& InSpawnTabArgs)
-	#else
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(HotPatcherTabName, FOnSpawnTab::CreateLambda([=, this](const class FSpawnTabArgs& InSpawnTabArgs)
-	#endif
 		{
 			return SpawnHotPatcherTab(Context);
 		}))
@@ -199,11 +206,7 @@ void FHotPatcherEditorModule::AddMenuExtension(FMenuBuilder& Builder)
 	Builder.AddSubMenu(
 		FText::FromString(TEXT("HotPatcher")),
 		FText::FromString(TEXT("HotPatcher")),
-	#if UE_VERSION_OLDER_THAN(5,4,0)
-		FNewMenuDelegate::CreateLambda([=](FMenuBuilder& Menu)
-	#else
 		FNewMenuDelegate::CreateLambda([=, this](FMenuBuilder& Menu)
-	#endif
 		{
 			Menu.AddWidget(this->HandlePickingModeContextMenu(),FText::FromString(TEXT("")),true);
 		}),
@@ -248,11 +251,7 @@ TSharedRef<SWidget> FHotPatcherEditorModule::HandlePickingModeContextMenu()
 			FText::FromString(TEXT("MAIN")),
 			FText::FromString(TEXT("MAIN")),
 			HotPatcherIcon,
-	#if UE_VERSION_OLDER_THAN(5,4,0)
-			FUIAction(FExecuteAction::CreateLambda([=]()
-	#else
 			FUIAction(FExecuteAction::CreateLambda([=, this]()
-	#endif
 			{
 				this->PluginButtonClicked(Context);
 			})));
@@ -284,11 +283,7 @@ TSharedRef<SWidget> FHotPatcherEditorModule::HandlePickingModeContextMenu()
 						FText::FromString(ActionName),
 						FText::FromString(ActionName),
 						FSlateIcon(),
-					#if UE_VERSION_OLDER_THAN(5,4,0)
-						FUIAction(FExecuteAction::CreateLambda([=]()
-					#else
 						FUIAction(FExecuteAction::CreateLambda([=, this]()
-					#endif
 						{
 							this->PluginButtonClicked(Context);
 						}))
@@ -332,7 +327,6 @@ TSharedRef<SDockTab> FHotPatcherEditorModule::SpawnHotPatcherTab(const FSHotPatc
 		];
 }
 
-#if WITH_EDITOR_SECTION 
 
 void FHotPatcherEditorModule::CreateRootMenu()
 {
@@ -354,20 +348,6 @@ void FHotPatcherEditorModule::CreateRootMenu()
 
 void FHotPatcherEditorModule::CreateAssetContextMenu(FToolMenuSection& InSection)
 {
-#if !WITH_UE5
-	InSection.AddSubMenu(
-		"CookActionsSubMenu",
-		LOCTEXT("CookActionsSubMenuLabel", "Cook Actions"),
-		LOCTEXT("CookActionsSubMenuToolTip", "Cook actions"),
-		FNewToolMenuDelegate::CreateRaw(this, &FHotPatcherEditorModule::MakeCookActionsSubMenu),
-		FUIAction(
-			FExecuteAction()
-			),
-		EUserInterfaceActionType::Button,
-		false, 
-		FSlateIcon(*StyleSetName, "ContentBrowser.AssetActions")
-		);
-#endif
 	InSection.AddSubMenu(
 		"CookAndPakActionsSubMenu",
 		LOCTEXT("CookAndPakActionsSubMenuLabel", "Cook And Pak Actions"),
@@ -411,7 +391,6 @@ void FHotPatcherEditorModule::ExtendContentBrowserAssetSelectionMenu()
 
 void FHotPatcherEditorModule::ExtendContentBrowserPathSelectionMenu()
 {
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 24
 	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("ContentBrowser.FolderContextMenu");
 	FToolMenuSection& Section = Menu->FindOrAddSection("PathContextCookUtilities");
 	FToolMenuEntry& Entry = Section.AddDynamicEntry("AssetManagerEditorViewCommands", FNewToolMenuSectionDelegate::CreateLambda([this](FToolMenuSection& InSection)
@@ -422,7 +401,6 @@ void FHotPatcherEditorModule::ExtendContentBrowserPathSelectionMenu()
 			CreateAssetContextMenu(InSection);
 		}
 	}));
-#endif
 }
 
 void FHotPatcherEditorModule::MakeCookActionsSubMenu(UToolMenu* Menu)
@@ -453,11 +431,7 @@ void FHotPatcherEditorModule::MakeCookAndPakActionsSubMenu(UToolMenu* Menu)
 		FToolMenuEntry& PlatformEntry = Section.AddSubMenu(FName(*PlatformName),
 			FText::Format(LOCTEXT("Platform", "{0}"), UKismetTextLibrary::Conv_StringToText(THotPatcherTemplateHelper::GetEnumNameByValue(Platform))),
 			FText(),
-		#if UE_VERSION_OLDER_THAN(5,4,0)
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder){
-		#else
 			FNewMenuDelegate::CreateLambda([=, this](FMenuBuilder& SubMenuBuilder){
-		#endif
 				SubMenuBuilder.AddMenuEntry(
 					LOCTEXT("AnalysisDependencies", "AnalysisDependencies"), FText(),
 					FSlateIcon(*StyleSetName,TEXT("WorldBrowser.LevelsMenuBrush")),
@@ -481,11 +455,7 @@ void FHotPatcherEditorModule::MakeHotPatcherPresetsActionsSubMenu(UToolMenu* Men
 		Section.AddSubMenu(FName(*PakConfig.VersionId),
 		FText::Format(LOCTEXT("PakExternal_VersionID", "{0}"), UKismetTextLibrary::Conv_StringToText(PakConfig.VersionId)),
 			FText(),
-		#if UE_VERSION_OLDER_THAN(5,4,0)
-			FNewMenuDelegate::CreateLambda([=](FMenuBuilder& SubMenuBuilder)
-		#else
 			FNewMenuDelegate::CreateLambda([=, this](FMenuBuilder& SubMenuBuilder)
-		#endif
 			{
 				for (ETargetPlatform Platform : GetAllowCookPlatforms())
 				{
@@ -520,7 +490,7 @@ void FHotPatcherEditorModule::OnAddToPatchSettings(const FToolMenuContext& MenuC
 	{
 		FPatcherSpecifyAsset PatchSettingAssetElement;
 		FSoftObjectPath AssetObjectPath;
-		AssetObjectPath.SetPath(UFlibAssetManageHelper::GetObjectPathByAssetData(AssetData));
+		AssetObjectPath.SetPath(UFlibAssetManageHelper::GetObjectPathByAssetData(AssetData).ToString());
 		PatchSettingAssetElement.Asset = AssetObjectPath;
 		PatchSettingAssetElement.bAnalysisAssetDependencies = true;
 		AssetsSoftPath.AddUnique(PatchSettingAssetElement);
@@ -536,7 +506,6 @@ void FHotPatcherEditorModule::OnPakPreset(FExportPatchSettings Config)
 	CookAndPakByPatchSettings(TmpPatchSettings,TmpPatchSettings->IsStandaloneMode());
 }
 
-#endif
 
 void FHotPatcherEditorModule::OnCookPlatform(ETargetPlatform Platform)
 {
@@ -670,13 +639,11 @@ void FHotPatcherEditorModule::OnCookAndPakPlatform(ETargetPlatform Platform, boo
 		IncludeAssets.AddUnique(CurrentAsset);
 	}
 	CookAndPakByAssetsAndFilters(IncludeAssets,IncludePaths,TArray<ETargetPlatform>{Platform}
-#if WITH_UE5
 	,true
-#endif
 	);
 }
 
-void FHotPatcherEditorModule::OnObjectSaved(UObject* ObjectSaved)
+void FHotPatcherEditorModule::OnObjectPreSave(UObject* ObjectSaved, FObjectPreSaveContext SaveContext)
 {
 	if (GIsCookerLoadingPackage)
 	{
@@ -722,12 +689,7 @@ FExportPatchSettings FHotPatcherEditorModule::MakeTempPatchSettings(
 TArray<ETargetPlatform> FHotPatcherEditorModule::GetAllCookPlatforms() const
 {
 	TArray<ETargetPlatform> TargetPlatforms;//{ETargetPlatform::Android_ASTC,ETargetPlatform::IOS,ETargetPlatform::WindowsNoEditor};
-	#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 21
 	UEnum* FoundEnum = StaticEnum<ETargetPlatform>();
-#else
-	FString EnumTypeName = ANSI_TO_TCHAR(THotPatcherTemplateHelper::GetCPPTypeName<ETargetPlatform>().c_str());
-	UEnum* FoundEnum = FindObject<UEnum>(ANY_PACKAGE, *EnumTypeName, true); 
-#endif
 	if (FoundEnum)
 	{
 		for(int32 index =1;index < FoundEnum->GetMaxEnumValue();++index)

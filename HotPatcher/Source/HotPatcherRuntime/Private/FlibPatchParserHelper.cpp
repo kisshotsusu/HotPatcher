@@ -1039,13 +1039,11 @@ TArray<FPakCommand> UFlibPatchParserHelper::CollectPakCommandByChunk(
 		
 		bool bIoStore =false;
 		bool bAllowBulkDataInIoStore = false;
-#if ENGINE_MAJOR_VERSION > 4 ||ENGINE_MINOR_VERSION > 25
 		if(PatcheSettings)
 		{
 			bIoStore = PatcheSettings->GetIoStoreSettings().bIoStore;
 			bAllowBulkDataInIoStore = PatcheSettings->GetIoStoreSettings().bAllowBulkDataInIoStore;
 		}
-#endif
 		
 		auto IsIoStoreAssetsLambda = [bIoStore,bAllowBulkDataInIoStore](const FString& InAbsAssets)->bool
 		{
@@ -1839,7 +1837,7 @@ FPakEncryptionKeys UFlibPatchParserHelper::GetCryptoByProjectSettings()
 	result.EncryptionKey.Name = TEXT("Embedded");
 	result.EncryptionKey.Guid = FGuid::NewGuid().ToString();
 	
-	UClass* Class = FindObject<UClass>(ANY_PACKAGE, TEXT("/Script/CryptoKeys.CryptoKeysSettings"), true);
+	UClass* Class = FindFirstObject<UClass>(TEXT("/Script/CryptoKeys.CryptoKeysSettings"), EFindFirstObjectOptions::EnsureIfAmbiguous);
 	if(Class)
 	{
 		FString AESKey;
@@ -1952,10 +1950,8 @@ TArray<FDirectoryPath> UFlibPatchParserHelper::GetDefaultForceSkipContentDir()
 	};
 
 	TArray<FString> AlwaySkipTempContentRules = {
-#if ENGINE_MAJOR_VERSION
 		TEXT("/Game/__ExternalActors__")
 		,TEXT("/Game/__ExternalObjects__")
-#endif
 	};
 	
 	auto AddToSkipDirs = [&result](const TArray<FString>& SkipDirs)

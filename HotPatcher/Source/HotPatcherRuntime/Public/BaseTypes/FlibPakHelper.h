@@ -4,7 +4,6 @@
 #include "FPakVersion.h"
 #include "AssetRegistry.h"
 // Engine Header
-#include "Resources/Version.h"
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Templates/SharedPointer.h"
@@ -12,10 +11,8 @@
 #include "IPlatformFilePak.h"
 #include "FlibPakHelper.generated.h"
 
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION >=26
 	#define FindFilesAtPath FindPrunedFilesAtPath
 	#define GetFilenames GetPrunedFilenames
-#endif
 
 UCLASS()
 class HOTPATCHERRUNTIME_API UFlibPakHelper : public UBlueprintFunctionLibrary

@@ -20,7 +20,7 @@ struct HOTPATCHERCORE_API FServerRequestInfo
 	FString Key;
 };
 
-struct HOTPATCHERCORE_API FCountServerlessWrapper
+struct HOTPATCHERCORE_API FCountServerlessWrapper : public TSharedFromThis<FCountServerlessWrapper>
 {
 	void Init(const FServerRequestInfo& InRequestInfo,const FProjectVersionDesc& InDesc)
 	{

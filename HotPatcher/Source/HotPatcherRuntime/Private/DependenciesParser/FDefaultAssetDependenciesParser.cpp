@@ -5,8 +5,6 @@
 #include "Async/ParallelFor.h"
 #include "Engine/World.h"
 #include "Engine/WorldComposition.h"
-#include "Resources/Version.h"
-#include "Misc/EngineVersionComparison.h"
 
 void FAssetDependenciesParser::Parse(const FAssetDependencies& InParseConfig)
 {
@@ -166,9 +164,7 @@ bool FAssetDependenciesParser::IsForceSkipAsset(const FString& LongPackageName, 
 
 	if(bIsIgnore && bDispalyLog)
 	{
-#if ASSET_DEPENDENCIES_DEBUG_LOG
 		UE_LOG(LogHotPatcher,Log,TEXT("Force Skip %s (match ignore rule %s)"),*LongPackageName,*MatchIgnoreStr);
-#endif
 	}
 	return bIsIgnore;
 }
@@ -234,11 +230,7 @@ TSet<FName> FAssetDependenciesParser::GatherAssetDependicesInfoRecursively(
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 			bGetDependenciesSuccess = InAssetRegistryModule.Get().GetDependencies(InLongPackageName, CurrentAssetDependencies,
 
-#if UE_VERSION_OLDER_THAN(5,3,0)
-				TotalType
-#else
 				UE::AssetRegistry::EDependencyCategory::Package
-#endif
 		);
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
@@ -263,9 +255,7 @@ TSet<FName> FAssetDependenciesParser::GatherAssetDependicesInfoRecursively(
 					World->WorldComposition->CollectTilesToCook(PackageNames);
 					for(const auto& PackageName:PackageNames)
 					{
-#if ASSET_DEPENDENCIES_DEBUG_LOG
 						UE_LOG(LogHotPatcher,Log,TEXT("Collecting WorldComposition Tile Package %s for %s"),*InLongPackageName.ToString(),*PackageName);
-#endif
 						CurrentAssetDependencies.AddUnique(FName(*PackageName));
 					}
 				}
@@ -307,7 +297,6 @@ TSet<FName> FAssetDependenciesParser::GatherAssetDependicesInfoRecursively(
 	if(bRecursively)
 	{
 		TSet<FName> Dependencies;
-#if ASSET_DEPENDENCIES_DEBUG_LOG
 		if(bVerboseLog)
 		{
 			UE_LOG(LogHotPatcher,Display,TEXT("AssetParser %s Dependencies: (%d)"),*InLongPackageName.ToString(),AssetDependencies.Num());
@@ -316,7 +305,6 @@ TSet<FName> FAssetDependenciesParser::GatherAssetDependicesInfoRecursively(
 				UE_LOG(LogHotPatcher,Display,TEXT("\t%s"),*AssetPackageName.ToString());
 			}
 		}
-#endif
 		for(const auto& AssetPackageName:AssetDependencies)
 		{
 			if(AssetPackageName.IsNone())

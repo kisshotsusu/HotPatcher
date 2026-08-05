@@ -28,6 +28,8 @@ public:
 
 public:
 
+	~SHotPatcherReleaseWidget();
+
 	/**
 	 * Constructs the widget.
 	 *

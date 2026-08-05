@@ -89,10 +89,8 @@ struct FPackageTracker : public FPackageTrackerBase
 		{
 			FString AssetPathNameStr = AssetPathName.ToString();
 			if(FPackageName::DoesPackageExist(AssetPathNameStr)
-#if WITH_UE5
 				 && !AssetPathNameStr.StartsWith(TEXT("/Game/__ExternalActors__")) &&
 				!AssetPathNameStr.StartsWith(TEXT("/Game/__ExternalObjects__"))
-#endif
 				)
 			{
 				UE_LOG(LogHotPatcher,Display,TEXT("[PackageTracker] Add %s"),*AssetPathNameStr);

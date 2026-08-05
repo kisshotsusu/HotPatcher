@@ -2,7 +2,6 @@
 #include "HotPatcherLog.h"
 #include "FlibPakHelper.h"
 #include "FlibPatchParserHelper.h"
-#include "Misc/EngineVersionComparison.h"
 
 void FReleasePakParser::Parser(TSharedPtr<FReleaseParserConf> ParserConf, EHashCalculator HashCalculator)
 {
@@ -19,9 +18,7 @@ void FReleasePakParser::Parser(TSharedPtr<FReleaseParserConf> ParserConf, EHashC
 	{
 		FString Extersion = FPaths::GetExtension(MountFile,true);
 		bool bIsWPFiles = false;
-#if UE_VERSION_NEWER_THAN(5,0,0)
 		bIsWPFiles = MountFile.Contains(TEXT("/_Generated_/"));
-#endif
 		if(!bIsWPFiles && UFlibPatchParserHelper::GetCookedUassetExtensions().Contains(Extersion))
 		{
 			if (!UFlibPatchParserHelper::GetUnCookUassetExtensions().Contains(Extersion))

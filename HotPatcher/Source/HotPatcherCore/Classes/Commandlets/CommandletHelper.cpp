@@ -58,20 +58,12 @@ TArray<FDirectoryPath> CommandletHelper::ParserPatchFilters(const FString& Comma
 
 static bool IsRequestingExit()
 {
-#if ENGINE_MAJOR_VERSION > 4 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 23)
 	return IsEngineExitRequested();
-#else
-	return GIsRequestingExit;
-#endif
 }
 
 static void RequestEngineExit()
 {
-#if ENGINE_MAJOR_VERSION > 4 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 23)
 	RequestEngineExit(TEXT("GeneralCommandlet ComWrapperShutdownEvent"));
-#else
-	GIsRequestingExit  = true;
-#endif
 }
 
 void CommandletHelper::MainTick(TFunction<bool()> IsRequestExit)

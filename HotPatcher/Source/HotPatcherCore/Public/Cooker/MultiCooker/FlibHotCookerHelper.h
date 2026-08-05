@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-#include "Resources/Version.h"
 #include "CoreMinimal.h"
 #include "ETargetPlatform.h"
 #include "Cooker/MultiCooker/FCookShaderCollectionProxy.h"

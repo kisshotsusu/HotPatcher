@@ -3,11 +3,7 @@
 
 #include "FlibPakHelper.h"
 #include "IPlatformFilePak.h"
-#if UE_VERSION_OLDER_THAN(5,0,0)
-#include "HAL/PlatformFilemanager.h"
-#else
 #include "HAL/PlatformFileManager.h"
-#endif
 #include "AssetManager/FFileArrayDirectoryVisitor.hpp"
 #include "HotPatcherLog.h"
 #include "FlibAssetManageHelper.h"
@@ -29,7 +25,6 @@
 #include "Misc/CoreDelegates.h"
 #include "Serialization/LargeMemoryReader.h"
 #include "ShaderCodeLibrary.h"
-#include "Misc/EngineVersionComparison.h"
 
 TSet<FName> UFlibPakHelper::LoadShaderLibraryNames;
 
@@ -244,15 +239,9 @@ bool UFlibPakHelper::LoadShaderbytecode(const FString& LibraryName, const FStrin
 		FinalLibraryDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*LibraryDir);
 	}
 #endif
-#if UE_VERSION_NEWER_THAN(4,23,0)
 	result = FShaderCodeLibrary::OpenLibrary(LibraryName, LibraryDir
-	#if !UE_VERSION_OLDER_THAN(5,3,0)
 	,true
-	#endif
 	);
-#else
-	FShaderCodeLibrary::OpenLibrary(LibraryName, LibraryDir);
-#endif
 	UE_LOG(LogHotPatcher,Log,TEXT("Load Shader bytecode %s,Dir: %s, status: %s"),*LibraryName,*FinalLibraryDir,result?TEXT("True"):TEXT("False"));
 	return result;
 }
@@ -267,9 +256,7 @@ void UFlibPakHelper::CloseShaderbytecode(const FString& LibraryName)
 	FShaderCodeLibrary::CloseLibrary(LibraryName);
 }
 
-#if !UE_VERSION_OLDER_THAN(5,2,0)
 #include "DataDrivenShaderPlatformInfo.h"
-#endif
 void UFlibPakHelper::LoadShaderLibrary(const FString& ScanShaderLibs)
 {
 	EShaderPlatform ShaderPlatform = FShaderCodeLibrary::GetRuntimeShaderPlatform();
@@ -351,7 +338,6 @@ void UFlibPakHelper::LoadHotPatcherAllShaderLibrarys()
 	LoadShaderLibrary(FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("Paks"))); // Saved/Paks
 }
 
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
 bool UFlibPakHelper::LoadAssetRegistryToState(const TCHAR* Path,FAssetRegistryState& Out)
 {
 	check(Path);
@@ -371,24 +357,6 @@ bool UFlibPakHelper::LoadAssetRegistryToState(const TCHAR* Path,FAssetRegistrySt
 
 	return false;
 }
-#else
-bool UFlibPakHelper::LoadAssetRegistryToState(const TCHAR* Path, FAssetRegistryState& Out)
-{
-	bool bStatus = false;
-	FString AssetRegistryPath = Path;
-	FArrayReader SerializedAssetData;
-	// FString AssetRegistryBinPath = InAssetRegistryBin;
-	// UE_LOG(LogHotPatcher,Log,TEXT("Load AssetRegistry %s"),*AssetRegistryBinPath);
-	if (IFileManager::Get().FileExists(*AssetRegistryPath) && FFileHelper::LoadFileToArray(SerializedAssetData, *AssetRegistryPath))
-	{
-		FAssetRegistryState State;
-		FAssetRegistrySerializationOptions SerializationOptions;
-		SerializationOptions.bSerializeAssetRegistry = true;
-		bStatus = State.Serialize(SerializedAssetData, SerializationOptions);
-	}
-	return bStatus;
-}
-#endif
 
 
 bool UFlibPakHelper::LoadAssetRegistry(const FString& LibraryName, const FString& LibraryDir)
@@ -402,11 +370,7 @@ bool UFlibPakHelper::LoadAssetRegistry(const FString& LibraryName, const FString
 		if(LoadAssetRegistryToState(*AssetRegistryPath,State))
 		{
 			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-#if ENGINE_MAJOR_VERSION > 4 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 21)
 			AssetRegistryModule.Get().AppendState(State);
-#else
-			// todo support append state in 4.21
-#endif
 			bStatus = true;
 		}
 	}
@@ -414,14 +378,9 @@ bool UFlibPakHelper::LoadAssetRegistry(const FString& LibraryName, const FString
 }
 
 
-#include "Misc/EngineVersionComparison.h"
 bool UFlibPakHelper::OpenPSO(const FString& Name)
 {
-#if UE_VERSION_OLDER_THAN(5,1,0)
-	return FShaderPipelineCache::OpenPipelineFileCache(Name,GMaxRHIShaderPlatform);
-#else
 	return FShaderPipelineCache::OpenPipelineFileCache(GMaxRHIShaderPlatform);
-#endif
 }
 
 FAES::FAESKey CachedAESKey;
@@ -512,11 +471,7 @@ bool PreLoadPak(const FString& InPakPath,const FString& AesKey)
 
 			FSHAHash Hash;
 			FMemory::Memcpy(Hash.Hash,
-#if ENGINE_MAJOR_VERSION > 4 || (ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION >= 23)
 				Info.IndexHash.Hash,
-#else
-				Info.IndexHash,
-#endif
 				20);
 
 			if (!ValidateEncryptionKey(PrimaryIndexData, Hash, AESKey))
@@ -537,11 +492,7 @@ bool PreLoadPak(const FString& InPakPath,const FString& AesKey)
 
 				if (Info.EncryptionKeyGuid.IsValid())
 				{
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION >= 26
 					FCoreDelegates::GetRegisterEncryptionKeyMulticastDelegate().Broadcast(Info.EncryptionKeyGuid, AESKey);
-#else
-					FCoreDelegates::GetRegisterEncryptionKeyDelegate().ExecuteIfBound(Info.EncryptionKeyGuid, AESKey);
-#endif
 				}
 			}
 		}
@@ -551,9 +502,7 @@ bool PreLoadPak(const FString& InPakPath,const FString& AesKey)
 	delete Reader;
 	return bShouldLoad;
 }
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
 #define FFileIterator FFilenameIterator
-#endif
 
 FSHA1 UFlibPakHelper::GetPakEntryHASH(FPakFile* InPakFile,const FPakEntry& PakEntry)
 {
@@ -561,11 +510,7 @@ FSHA1 UFlibPakHelper::GetPakEntryHASH(FPakFile* InPakFile,const FPakEntry& PakEn
 	auto Reader = InPakFile->GetSharedReader(nullptr);
 	Reader->Seek(PakEntry.Offset);
 	FPakEntry SerializedEntry;
-#if ENGINE_MAJOR_VERSION > 4	
 	SerializedEntry.Serialize(Reader.GetArchive(), InPakFile->GetInfo().Version);
-#else
-	SerializedEntry.Serialize(*Reader, InPakFile->GetInfo().Version);
-#endif	
 	FMemory::Memcpy(Sha1.m_digest, &SerializedEntry.Hash, sizeof(SerializedEntry.Hash));
 	return Sha1;
 }
@@ -575,11 +520,7 @@ TArray<FString> UFlibPakHelper::GetPakFileList(const FString& InPak, const FStri
 	TArray<FString> Records;
 	
 	auto PakFilePtr = UFlibPakHelper::GetPakFileIns(InPak,AESKey);;
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
 	TRefCountPtr<FPakFile> PakFile = PakFilePtr;
-#else
-	TSharedPtr<FPakFile> PakFile = MakeShareable(PakFilePtr);
-#endif
 	UFlibPakHelper::GetPakEntrys(PakFilePtr).GetKeys(Records);
 	return Records;
 }
@@ -629,11 +570,7 @@ FString UFlibPakHelper::GetPakFileMountPoint(const FString& InPak, const FString
 	FString result;
 
 	auto PakFilePtr = UFlibPakHelper::GetPakFileIns(InPak,AESKey);;
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 26
 	TRefCountPtr<FPakFile> PakFile = PakFilePtr;
-#else
-	TSharedPtr<FPakFile> PakFile = MakeShareable(PakFilePtr);
-#endif
 
 	if(PakFilePtr)
 	{

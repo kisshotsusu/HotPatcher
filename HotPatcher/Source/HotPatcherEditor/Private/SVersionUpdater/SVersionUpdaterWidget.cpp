@@ -15,11 +15,8 @@
 #include "Interfaces/IHttpRequest.h"
 #include "Interfaces/IHttpResponse.h"
 #include "Interfaces/IPluginManager.h"
-#include "Misc/EngineVersionComparison.h"
 
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	typedef FAppStyle FEditorStyle;
-#endif
 
 #define LOCTEXT_NAMESPACE "VersionUpdaterWidget"
 
@@ -351,13 +348,7 @@ void SChildModManageWidget::SetPaymentFocus(const FString& Name)
 
 void SVersionUpdaterWidget::Construct(const FArguments& InArgs)
 {
-	static bool GBrushInited = false;
-	if(!GBrushInited)
-	{
-		FVersionUpdaterStyle::Initialize(FString::Printf(TEXT("%s_UpdaterStyle"),*GToolName));
-		FVersionUpdaterStyle::ReloadTextures();
-		GBrushInited = true;
-	}
+	FVersionUpdaterStyle::Initialize(FString::Printf(TEXT("%s_UpdaterStyle"),*GToolName));
 	
 	SetToolUpdateInfo(
 		InArgs._ToolName.Get().ToString(),
@@ -368,8 +359,9 @@ void SVersionUpdaterWidget::Construct(const FArguments& InArgs)
 	ToolVersion = InArgs._ToolVersion.Get();
 	CurrentVersion = InArgs._CurrentVersion.Get();
 	PatchVersion = InArgs._PatchVersion.Get();
-	bool bhPayment = FPaths::FileExists(IPluginManager::Get().FindPlugin(ToolName)->GetBaseDir() / TEXT("Resources/hPayment.txt"));
-	bool bhMods = FPaths::FileExists(IPluginManager::Get().FindPlugin(ToolName)->GetBaseDir() / TEXT("Resources/hMods.txt"));
+	TSharedPtr<IPlugin> ToolPlugin = IPluginManager::Get().FindPlugin(ToolName);
+	bool bhPayment = ToolPlugin.IsValid() && FPaths::FileExists(ToolPlugin->GetBaseDir() / TEXT("Resources/hPayment.txt"));
+	bool bhMods = ToolPlugin.IsValid() && FPaths::FileExists(ToolPlugin->GetBaseDir() / TEXT("Resources/hMods.txt"));
 	
 	ChildSlot
 	[
@@ -513,9 +505,13 @@ void SVersionUpdaterWidget::Construct(const FArguments& InArgs)
 	];
 	if(!FVersionUpdaterManager::Get().IsRequestFinished())
 	{
-		FVersionUpdaterManager::Get().AddOnFinishedCallback([&]()
+		TWeakPtr<SVersionUpdaterWidget> WeakThis = StaticCastSharedRef<SVersionUpdaterWidget>(AsShared());
+		FVersionUpdaterManager::Get().AddOnFinishedCallback([WeakThis]()
 		{
-			OnRemoveVersionFinished();
+			if (TSharedPtr<SVersionUpdaterWidget> PinnedThis = WeakThis.Pin())
+			{
+				PinnedThis->OnRemoveVersionFinished();
+			}
 		});
 		
 		FVersionUpdaterManager::Get().RequestRemoveVersion(GRemoteVersionFile);

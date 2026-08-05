@@ -3,7 +3,6 @@
 #include "Cooker/MultiCooker/FlibHotCookerHelper.h"
 #include "ShaderLibUtils//FlibShaderCodeLibraryHelper.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "Resources/Version.h"
 
 FCookShaderCollectionProxy::FCookShaderCollectionProxy(const TArray<FString>& InPlatformNames,const FString& InLibraryName,bool bInShareShader,bool InIsNative,bool bInMaster,const FString& InSaveBaseDir)
 :PlatformNames(InPlatformNames),LibraryName(InLibraryName),bShareShader(bInShareShader),bIsNative(InIsNative),bMaster(bInMaster),SaveBaseDir(InSaveBaseDir){}
@@ -14,7 +13,7 @@ void FCookShaderCollectionProxy::Init()
 {
 	if(bShareShader)
 	{
-		SHADER_COOKER_CLASS::InitForCooking(bIsNative);
+		SHADER_COOKER_CLASS::InitForCooking(bIsNative, nullptr);
 		for(const auto& PlatformName:PlatformNames)
 		{
 			ITargetPlatform* TargetPlatform = UFlibHotPatcherCoreHelper::GetPlatformByName(PlatformName);
@@ -22,19 +21,7 @@ void FCookShaderCollectionProxy::Init()
 			TArray<FName> ShaderFormats = UFlibShaderCodeLibraryHelper::GetShaderFormatsByTargetPlatform(TargetPlatform);
 			if (ShaderFormats.Num() > 0)
 			{
-	#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
 				TArray<SHADER_COOKER_CLASS::FShaderFormatDescriptor> ShaderFormatsWithStableKeys = UFlibShaderCodeLibraryHelper::GetShaderFormatsWithStableKeys(ShaderFormats);
-	#else
-		#if ENGINE_MAJOR_VERSION == 4 && ENGINE_MINOR_VERSION > 22
-						TArray<TPair<FName, bool>> ShaderFormatsWithStableKeys;
-						for (FName& Format : ShaderFormats)
-						{
-							ShaderFormatsWithStableKeys.Push(MakeTuple(Format, true));
-						}
-		#else
-						TArray<FName> ShaderFormatsWithStableKeys =  ShaderFormats;
-		#endif
-	#endif
 				SHADER_COOKER_CLASS::CookShaderFormats(ShaderFormatsWithStableKeys);
 			}
 		}
@@ -53,13 +40,6 @@ void FCookShaderCollectionProxy::Shutdown()
 		{
 			FString PlatformName = TargetPlatform->PlatformName();
 			bSuccessed = UFlibShaderCodeLibraryHelper::SaveShaderLibrary(TargetPlatform, NULL, LibraryName,SaveBaseDir,bMaster);
-#if ENGINE_MAJOR_VERSION < 5 && ENGINE_MINOR_VERSION <= 26
-			if(bIsNative)
-			{
-				FString ShaderCodeDir = FPaths::Combine(SaveBaseDir,PlatformName);
-				bSuccessed = bSuccessed && FShaderCodeLibrary::PackageNativeShaderLibrary(ShaderCodeDir,UFlibShaderCodeLibraryHelper::GetShaderFormatsByTargetPlatform(TargetPlatform));
-			}
-#endif
 			// rename StarterContent_SF_METAL.0.metallib to startercontent_sf_metal.0.metallib
 			if(bSuccessed && bIsNative && UFlibHotCookerHelper::IsAppleMetalPlatform(TargetPlatform))
 			{

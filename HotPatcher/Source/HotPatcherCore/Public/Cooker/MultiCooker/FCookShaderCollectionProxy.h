@@ -1,5 +1,4 @@
 #pragma once
-#include "Resources/Version.h"
 #include "ShaderCodeLibrary.h"
 #include "CoreMinimal.h"
 #include "Kismet/BlueprintFunctionLibrary.h"

@@ -21,7 +21,6 @@
 
 // engine header
 #include "CoreMinimal.h"
-#include "Resources/Version.h"
 #include "JsonObjectConverter.h"
 #include "Misc/CommandLine.h"
 #include "FPlatformExternAssets.h"

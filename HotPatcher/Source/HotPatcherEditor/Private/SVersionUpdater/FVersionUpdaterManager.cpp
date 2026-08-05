@@ -19,6 +19,8 @@ void FVersionUpdaterManager::Reset()
 		HttpHeadRequest.Reset();
 	}
 	Counter.Reset();
+	OnRequestFinishedCallback.Reset();
+	bRequestFinished = false;
 }
 
 void FVersionUpdaterManager::Update()
@@ -53,9 +55,14 @@ void FVersionUpdaterManager::RequestRemoveVersion(const FString& URL)
 
 void FVersionUpdaterManager::OnRequestComplete(FHttpRequestPtr RequestPtr, FHttpResponsePtr ResponsePtr, bool bConnectedSuccessfully)
 {
-    if(!ResponsePtr.IsValid())
-    {
-        return;
+	if (RequestPtr != HttpHeadRequest)
+	{
+		// Ignore responses from stale/cancelled requests.
+		return;
+	}
+	if(!ResponsePtr.IsValid())
+	{
+		return;
     }
 	FString Result = ResponsePtr->GetContentAsString();
 	TSharedRef<TJsonReader<TCHAR>> JsonReader = TJsonReaderFactory<TCHAR>::Create(Result);
@@ -120,7 +127,7 @@ void FVersionUpdaterManager::OnRequestComplete(FHttpRequestPtr RequestPtr, FHttp
 									FString ValueStr;
 									if(ModDescJsonObject->TryGetStringField(Name,ValueStr))
 									{
-										Result = UKismetStringLibrary::Conv_StringToFloat(ValueStr);
+										Result = FCString::Atof(*ValueStr);
 									}
 									return Result;
 								};
@@ -152,5 +159,6 @@ void FVersionUpdaterManager::OnRequestComplete(FHttpRequestPtr RequestPtr, FHttp
 		{
 			callback();
 		}
+		OnRequestFinishedCallback.Reset();
 	}
 }

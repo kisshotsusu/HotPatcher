@@ -34,7 +34,6 @@ void SHotPatcher::Construct(const FArguments& InArgs,const FSHotPatcherContext& 
 			.Padding(0.0f, 10.0f, 8.0f, 0.0f)
 			[
 				SNew(SVerticalBox)
-#if ENABLE_UPDATER_CHECK
 				+SVerticalBox::Slot()
 				.AutoHeight()
 				[
@@ -47,7 +46,6 @@ void SHotPatcher::Construct(const FArguments& InArgs,const FSHotPatcherContext& 
 					.CurrentVersion(GToolMainVersion)
 					.PatchVersion(GToolPatchVersion)
 				]
-#endif
 				+SVerticalBox::Slot()
 				.Padding(0,10,0,0)
 				.AutoHeight()
@@ -111,7 +109,10 @@ void SHotPatcher::Construct(const FArguments& InArgs,const FSHotPatcherContext& 
 	}
 	if(!Context.Category.IsEmpty() && !Context.ActionName.IsEmpty())
 	{
-		HotPatcherCategorys.Find(Context.Category)->Widget->SelectToAction(Context.ActionName);
+		if (FHotPatcherCategory* Category = HotPatcherCategorys.Find(Context.Category))
+		{
+			Category->Widget->SelectToAction(Context.ActionName);
+		}
 	}
 }
 

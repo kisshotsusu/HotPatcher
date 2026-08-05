@@ -1,6 +1,5 @@
 #pragma once
 
-#if WITH_EDITOR_SECTION
 #include "ETargetPlatform.h"
 #include "CoreMinimal.h"
 #include "Engine/StaticMesh.h"
@@ -33,5 +32,4 @@ private:
 	void MakeCookAndPakActionsSubMenu(class UToolMenu* Menu,TArray<TWeakObjectPtr<UPrimaryAssetLabel>> Objects);
 	void OnCookAndPakPlatform(ETargetPlatform Platform,TArray<TWeakObjectPtr<UPrimaryAssetLabel>> Objects);
 };
-#endif
 

@@ -3,7 +3,6 @@
 #include "BinariesPatchFeature.h"
 #include "HotPatcherTemplateHelper.hpp"
 
-#include "Resources/Version.h"
 #include "Features/IModularFeatures.h"
 #include "Misc/EnumRange.h"
 #include "Modules/ModuleManager.h"

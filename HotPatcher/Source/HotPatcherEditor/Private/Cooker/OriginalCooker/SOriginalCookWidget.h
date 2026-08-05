@@ -31,6 +31,8 @@ public:
 
 public:
 
+	virtual ~SOriginalCookWidget();
+
 	/**
 	 * Constructs the widget.
 	 *

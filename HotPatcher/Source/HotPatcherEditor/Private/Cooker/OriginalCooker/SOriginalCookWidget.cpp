@@ -25,6 +25,22 @@
 
 DEFINE_LOG_CATEGORY(LogCookPage);
 
+SOriginalCookWidget::~SOriginalCookWidget()
+{
+	if (mCookProcWorkingThread.IsValid())
+	{
+		mCookProcWorkingThread->Cancel();
+		mCookProcWorkingThread->Join();
+		mCookProcWorkingThread.Reset();
+	}
+	if (MissionNotifyProay)
+	{
+		MissionNotifyProay->MissionCanceled.RemoveAll(this);
+		MissionNotifyProay->RemoveFromRoot();
+		MissionNotifyProay = nullptr;
+	}
+}
+
 /* SProjectCookPage interface
  *****************************************************************************/
 

@@ -111,7 +111,7 @@ struct FCookCluster
     bool bCacheDDCOnly = false;
 
     UPROPERTY()
-    ECookClusterType ClusterType;
+    ECookClusterType ClusterType = ECookClusterType::Normal;
 public: // for advanced cook
     UPROPERTY()
     bool bShaderCluster = false;
@@ -222,12 +222,10 @@ protected: // metadata func
     void ShutdowShaderLibCollections();
     
 private: // package context
-#if WITH_PACKAGE_CONTEXT
     FORCEINLINE TMap<ETargetPlatform,TSharedPtr<FSavePackageContext>>& GetPlatformSavePackageContexts() {return PlatformSavePackageContexts;}
     TMap<ETargetPlatform,FSavePackageContext*> GetPlatformSavePackageContextsRaw();
     TMap<FString, FSavePackageContext*> GetPlatformSavePackageContextsNameMapping();
     TMap<ETargetPlatform,TSharedPtr<FSavePackageContext>> PlatformSavePackageContexts;
-#endif
 
 public: // static function
     static void DumpCluster(const FCookCluster& CookCluster, bool bWriteToLog);

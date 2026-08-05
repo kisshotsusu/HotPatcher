@@ -7,11 +7,8 @@
 #include "Widgets/Layout/SSeparator.h"
 #include "FlibPatchParserHelper.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "Misc/EngineVersionComparison.h"
 
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	typedef FAppStyle FEditorStyle;
-#endif
 #define LOCTEXT_NAMESPACE "SHotPatcherCookSpecifyCookFilter"
 
 void SHotPatcherCookSpecifyCookFilter::Construct(const FArguments& InArgs, TSharedPtr<FHotPatcherContextBase> InContext)

@@ -2,10 +2,10 @@
 
 #pragma once
 
-#if WITH_EDITOR_SECTION
+class FObjectPreSaveContext;
+
 	#include "ToolMenuContext.h"
 	#include "ToolMenu.h"
-#endif
 
 #include "HotPatcherSettings.h"
 #include "ETargetPlatform.h"
@@ -23,14 +23,14 @@
 #include "MissionNotificationProxy.h"
 #include "ThreadUtils/FProcWorkerThread.hpp"
 
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION>=26
 	#define InvokeTab TryInvokeTab
-#endif
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHotPatcherEdotor,All,All)
 
 class FToolBarBuilder;
 class FMenuBuilder;
+class FExtender;
+class FAssetTypeActions_PrimaryAssetLabel;
 
 
 struct FContentBrowserSelectedInfo
@@ -72,7 +72,6 @@ public:
 	TSharedPtr<FProcWorkerThread> RunProcMission(const FString& Bin, const FString& Command, const FString& MissionName, const FText& NotifyTextOverride = FText{});
 
 	
-#if WITH_EDITOR_SECTION
 	void CreateRootMenu();
 	void CreateAssetContextMenu(FToolMenuSection& InSection);
 	void ExtendContentBrowserAssetSelectionMenu();
@@ -81,7 +80,6 @@ public:
 	void MakeCookAndPakActionsSubMenu(UToolMenu* Menu);
 	void MakeHotPatcherPresetsActionsSubMenu(UToolMenu* Menu);
 	void OnAddToPatchSettings(const FToolMenuContext& MenuContent);
-#endif
 	TArray<ETargetPlatform> GetAllowCookPlatforms() const;
 	static void OnCookPlatformForExterner(ETargetPlatform Platform);;
 	void OnCookPlatform(ETargetPlatform Platform);
@@ -90,7 +88,7 @@ public:
 	void CookAndPakByPatchSettings(TSharedPtr<FExportPatchSettings> PatchSettings,bool bForceStandalone);
 	void OnPakPreset(FExportPatchSettings Config,ETargetPlatform Platform);
 	void OnPakPreset(FExportPatchSettings Config);
-	void OnObjectSaved( UObject* ObjectSaved );
+	void OnObjectPreSave(UObject* ObjectSaved, FObjectPreSaveContext SaveContext);
 
 
 	FExportPatchSettings MakeTempPatchSettings(
@@ -106,11 +104,14 @@ private:
 	
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;
+	TSharedPtr<FExtender> MenuExtender;
+	TSharedPtr<FExtender> ToolbarExtender;
 	TSharedPtr<SDockTab> DockTab;
 	mutable TSharedPtr<FProcWorkerThread> mProcWorkingThread;
 	UMissionNotificationProxy* MissionNotifyProay = NULL;
 	TSharedPtr<FExportPatchSettings> PatchSettings;
 	TArray<class UPatcherProxy*> Proxys;
 	FString StyleSetName;
+	TSharedPtr<FAssetTypeActions_PrimaryAssetLabel> AssetTypeActions;
 };
 

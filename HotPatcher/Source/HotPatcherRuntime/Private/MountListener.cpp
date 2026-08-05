@@ -14,28 +14,16 @@ void UMountListener::Init()
 {
     if(!HasAnyFlags(RF_ClassDefaultObject))
     {
-#if ENGINE_MAJOR_VERSION >4 || ENGINE_MINOR_VERSION >=26
-    	FCoreDelegates::OnPakFileMounted2.AddLambda([this](const IPakFile& PakFile){this->OnMountPak(*PakFile.PakGetPakFilename(),0);});
-#endif
+		FCoreDelegates::GetOnPakFileMounted2().AddLambda([this](const IPakFile& PakFile){this->OnMountPak(*PakFile.PakGetPakFilename(),0);});
 
-#if ENGINE_MINOR_VERSION <=25 && ENGINE_MINOR_VERSION > 24
-        FCoreDelegates::OnPakFileMounted.AddLambda([this](const TCHAR* Pak, const int32 ChunkID){this->OnMountPak(Pak,ChunkID);});
-#endif
     	
-#if ENGINE_MAJOR_VERSION <=4 && ENGINE_MINOR_VERSION <= 24
-    	FCoreDelegates::PakFileMountedCallback.AddLambda([this](const TCHAR* Pak){this->OnMountPak(Pak,0);});
-#endif
         FCoreDelegates::OnUnmountPak.BindUObject(this,&UMountListener::OnUnMountPak);
 #if !WITH_EDITOR
         FPakPlatformFile* PakFileMgr = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
         TArray<FString> MountedPaks = UFlibPakHelper::GetAllMountedPaks();
         for(const auto& Pak:MountedPaks)
         {
-#if ENGINE_MAJOR_VERSION >4 || ENGINE_MINOR_VERSION > 24
             OnMountPak(*Pak,UFlibPakHelper::GetPakOrderByPakPath(Pak));
-#else
-            OnMountPak(*Pak);
-#endif
         }
 #endif
     }

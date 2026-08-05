@@ -27,13 +27,18 @@
 #include "HAL/FileManager.h"
 #include "PakFileUtilities.h"
 #include "Kismet/KismetTextLibrary.h"
-#include "Misc/EngineVersionComparison.h"
 
-#if !UE_VERSION_OLDER_THAN(5,1,0)
 	typedef FAppStyle FEditorStyle;
-#endif
 
 #define LOCTEXT_NAMESPACE "SHotPatcherCreatePatch"
+
+SHotPatcherPatchWidget::~SHotPatcherPatchWidget()
+{
+	if (GPatchSettings == ExportPatchSetting.Get())
+	{
+		GPatchSettings = nullptr;
+	}
+}
 
 void SHotPatcherPatchWidget::Construct(const FArguments& InArgs, TSharedPtr<FHotPatcherContextBase> InCreatePatchModel)
 {
@@ -225,11 +230,9 @@ void SHotPatcherPatchWidget::ImportProjectConfig()
 	GetConfigSettings()->IoStoreSettings.bIoStore = bUseIoStore;
 	GetConfigSettings()->IoStoreSettings.bAllowBulkDataInIoStore = bAllowBulkDataInIoStore;
 
-#if ENGINE_MAJOR_VERSION > 4
 	bool bMakeBinaryConfig = false;
 	GConfig->GetBool(TEXT("/Script/UnrealEd.ProjectPackagingSettings"),TEXT("bMakeBinaryConfig"),bMakeBinaryConfig,GEngineIni);
 	GetConfigSettings()->bMakeBinaryConfig = bMakeBinaryConfig;
-#endif
 	
 	FString PakFileCompressionFormats;
 	GConfig->GetString(TEXT("/Script/UnrealEd.ProjectPackagingSettings"),TEXT("PakFileCompressionFormats"),PakFileCompressionFormats,GGameIni);

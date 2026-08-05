@@ -44,7 +44,10 @@ const FVector2D Icon40x40(40.0f, 40.0f);
 TSharedRef< FSlateStyleSet > FHotPatcherStyle::Create()
 {
 	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("HotPatcherStyle"));
-	Style->SetContentRoot(IPluginManager::Get().FindPlugin("HotPatcher")->GetBaseDir() / TEXT("Resources"));
+	TSharedPtr<IPlugin> HotPatcherPlugin = IPluginManager::Get().FindPlugin(TEXT("HotPatcher"));
+	FString ContentRoot = HotPatcherPlugin.IsValid() ? HotPatcherPlugin->GetBaseDir() / TEXT("Resources")
+		: FPaths::ProjectPluginsDir() / TEXT("HotPatcher/Resources");
+	Style->SetContentRoot(ContentRoot);
 	Style->Set("HotPatcher.PluginAction", new IMAGE_BRUSH(TEXT("ButtonIcon_40x"), Icon40x40));
 	return Style;
 }
@@ -54,14 +57,6 @@ TSharedRef< FSlateStyleSet > FHotPatcherStyle::Create()
 #undef BORDER_BRUSH
 #undef TTF_FONT
 #undef OTF_FONT
-
-void FHotPatcherStyle::ReloadTextures()
-{
-	if (FSlateApplication::IsInitialized())
-	{
-		FSlateApplication::Get().GetRenderer()->ReloadTextureResources();
-	}
-}
 
 const ISlateStyle& FHotPatcherStyle::Get()
 {

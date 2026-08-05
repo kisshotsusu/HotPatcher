@@ -1,7 +1,6 @@
 
 #include "Cooker/PackageWriter/HotPatcherPackageWriter.h"
 
-#if WITH_PACKAGE_CONTEXT && ENGINE_MAJOR_VERSION > 4
 #include "AssetRegistry/IAssetRegistry.h"
 #include "Async/Async.h"
 #include "Serialization/LargeMemoryWriter.h"
@@ -9,43 +8,55 @@
 
 void FHotPatcherPackageWriter::Initialize(const FCookInfo& Info){}
 
-#if !UE_VERSION_NEWER_THAN(5,1,1)
-void FHotPatcherPackageWriter::AddToExportsSize(int64& ExportsSize)
-{
-	TPackageWriterToSharedBuffer<ICookedPackageWriter>::AddToExportsSize(ExportsSize);
-}
-#endif
 
 void FHotPatcherPackageWriter::BeginPackage(const FBeginPackageInfo& Info)
 {
-	TPackageWriterToSharedBuffer<ICookedPackageWriter>::BeginPackage(Info);
+	TPackageWriterToSharedBuffer<FBaseCookedPackageWriter>::BeginPackage(Info);
 }
 
 void FHotPatcherPackageWriter::BeginCook(
-#if UE_VERSION_NEWER_THAN(5,1,1)
 		const FCookInfo& Info
-#endif
 ){}
 
 void FHotPatcherPackageWriter::EndCook(
-#if UE_VERSION_NEWER_THAN(5,1,1)
 		const FCookInfo& Info
-#endif
 ){}
-
-// void FHotPatcherPackageWriter::Flush()
-// {
-// 	UPackage::WaitForAsyncFileWrites();
-// }
-
-TUniquePtr<FAssetRegistryState> FHotPatcherPackageWriter::LoadPreviousAssetRegistry()
-{
-	return TUniquePtr<FAssetRegistryState>();
-}
 
 FCbObject FHotPatcherPackageWriter::GetOplogAttachment(FName PackageName, FUtf8StringView AttachmentKey)
 {
 	return FCbObject();
+}
+
+void FHotPatcherPackageWriter::PopulateOplog(const FAssetRegistryState& PreviousState, int32& OutNumPackagesInOplog)
+{
+	OutNumPackagesInOplog = 0;
+}
+
+void FHotPatcherPackageWriter::UpdateLastReferenceDateAndPruneStaleOps(
+	UE::Cook::Artifact::FUpdateOplogPackagesContext& OplogContext)
+{
+}
+
+TArray<FName> FHotPatcherPackageWriter::GetOplogPackageNames()
+{
+	return TArray<FName>();
+}
+
+void FHotPatcherPackageWriter::GetOplogAttachments(TArrayView<FName> PackageNames,
+	TArrayView<FUtf8StringView> AttachmentKeys,
+	TUniqueFunction<void(FName PackageName, FUtf8StringView AttachmentKey, FCbObject&& Attachment)>&& Callback)
+{
+}
+
+void FHotPatcherPackageWriter::GetBaseGameOplogAttachments(TArrayView<FName> PackageNames,
+	TArrayView<FUtf8StringView> AttachmentKeys,
+	TUniqueFunction<void(FName PackageName, FUtf8StringView AttachmentKey, FCbObject&& Attachment)>&& Callback)
+{
+}
+
+IPackageWriter::ECommitStatus FHotPatcherPackageWriter::GetCommitStatus(FName PackageName)
+{
+	return IPackageWriter::ECommitStatus::NotCommitted;
 }
 
 void FHotPatcherPackageWriter::RemoveCookedPackages(TArrayView<const FName> PackageNamesToRemove)
@@ -57,28 +68,18 @@ void FHotPatcherPackageWriter::RemoveCookedPackages()
 	UPackage::WaitForAsyncFileWrites();
 }
 
-#if UE_VERSION_OLDER_THAN(5,4,0)
-void FHotPatcherPackageWriter::MarkPackagesUpToDate(TArrayView<const FName> UpToDatePackages)
+void FHotPatcherPackageWriter::UpdatePackageModifiedStatus(FUpdatePackageModifiedStatusContext& Context)
 {
 }
-#else
-void FHotPatcherPackageWriter::UpdatePackageModificationStatus(FName PackageName, bool bIterativelyUnmodified, bool& bInOutShouldIterativelySkip)
+
+void FHotPatcherPackageWriter::SetCooker(UE::PackageWriter::Private::ICookerInterface* CookerInterface)
 {
 }
-#endif
 
 bool FHotPatcherPackageWriter::GetPreviousCookedBytes(const FPackageInfo& Info, FPreviousCookedBytesData& OutData)
 {
 	return ICookedPackageWriter::GetPreviousCookedBytes(Info, OutData);
 }
-#if UE_VERSION_OLDER_THAN(5,3,0)
-void FHotPatcherPackageWriter::CompleteExportsArchiveForDiff(const FPackageInfo& Info,
-	FLargeMemoryWriter& ExportsArchive)
-{
-
-	ICookedPackageWriter::CompleteExportsArchiveForDiff(Info, ExportsArchive);
-}
-#endif
 
 void FHotPatcherPackageWriter::CollectForSavePackageData(FRecord& Record, FCommitContext& Context)
 {
@@ -374,12 +375,9 @@ void FHotPatcherPackageWriter::FWriteFileData::Write(FMD5& AccumulatedHash, EWri
 		}
 	}
 }
-#if UE_VERSION_NEWER_THAN(5,1,1)
 TFuture<FCbObject> FHotPatcherPackageWriter::WriteMPCookMessageForPackage(FName PackageName)
 {
 	TPromise<FCbObject> Promise;
 	return Promise.GetFuture();
 }
-#endif
 
-#endif

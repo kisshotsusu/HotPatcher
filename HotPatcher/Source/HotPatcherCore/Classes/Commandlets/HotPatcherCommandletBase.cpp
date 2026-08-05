@@ -91,11 +91,9 @@ void UHotPatcherCommandletBase::MaybeMarkPackageAsAlreadyLoaded(UPackage* Packag
 int32 UHotPatcherCommandletBase::Main(const FString& Params)
 {
 	Update(Params);
-#if SUPPORT_NO_DDC
 	// for Object Create Tracking,Optimize Asset searching, dont execute UObject::PostLoad
 	ObjectTrackerTagCleaner = MakeShareable(new FObjectTrackerTagCleaner(this));
 	FCoreUObjectDelegates::PackageCreatedForLoad.AddUObject(this,&UHotPatcherCommandletBase::MaybeMarkPackageAsAlreadyLoaded);
-#endif
 
 #if PLATFORM_WINDOWS && WITH_EDITOR
 	{
