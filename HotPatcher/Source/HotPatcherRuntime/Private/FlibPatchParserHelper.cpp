@@ -1950,6 +1950,9 @@ TArray<FDirectoryPath> UFlibPatchParserHelper::GetDefaultForceSkipContentDir()
 	};
 
 	TArray<FString> AlwaySkipTempContentRules = {
+		// World Partition external actor/object packages are editor-only source
+		// packages: the map's cook (via the engine Cook commandlet) regenerates or
+		// bakes them into the cooked map, so they must not be cooked individually.
 		TEXT("/Game/__ExternalActors__")
 		,TEXT("/Game/__ExternalObjects__")
 	};

@@ -35,6 +35,7 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Misc/CoreMisc.h"
 #include "DerivedDataCacheInterface.h"
+#include "Misc/MonitoredProcess.h"
 #include "HotPatcherRuntime.h"
 #include "Internationalization/PackageLocalizationManager.h"
 #include "Misc/ScopeExit.h"
@@ -692,14 +693,6 @@ bool UFlibHotPatcherCoreHelper::CookPackagesByCmdlet(
 		bool bCookStatus = CookByCmdlet(LongPackageNames,CookPlatformPair.Key,RealCookedSavePath, bSharedMaterialLibrary);
         ESavePackageResult result = bCookStatus ? ESavePackageResult::Success : ESavePackageResult::Error;
 		for(const auto& SoftObjectPath:ObjectPaths){ CookActionCallback.OnAssetCooked(SoftObjectPath,CookPlatformPair.Key,result); }
-
-		FString CleanCmdletDir = SrcCookedPath.Replace(*PlatformName,TEXT(""));
-		CleanCmdletDir = CleanCmdletDir.Replace(TEXT("/Cooked/"),TEXT("/CmdletCooked/"));
-		FPaths::NormalizeDirectoryName(CleanCmdletDir);
-		if(!CleanCmdletDir.IsEmpty() && FPaths::DirectoryExists(CleanCmdletDir))
-		{
-			IFileManager::Get().DeleteDirectory(*CleanCmdletDir,true,true);
-		}
 		
 	}
 	return true;
@@ -709,6 +702,7 @@ bool UFlibHotPatcherCoreHelper::CookByCmdlet(const TArray<FString>& LongPackageN
 	ETargetPlatform TargetPlatform, const FString& SaveToCookedDir,
 	bool bSharedMaterialLibrary)
 {
+	(void)bSharedMaterialLibrary; // the cook runs in its own process with its own settings
 	bool bRet = false;
 	FString PlatformName = THotPatcherTemplateHelper::GetEnumNameByValue(TargetPlatform);
 	FString CookedSavePath = FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("Cooked"),PlatformName);
@@ -728,20 +722,6 @@ TEXT("%s -cooksinglepackagenorefs"),
 	FString CookAssetsCmdline;
 	if(LongPackageNames.Num())
 	{
-		UProjectPackagingSettings* PackagingSettings = GetMutableDefault<UProjectPackagingSettings>();
-		bool bShareMaterialShaderCodeBak = PackagingSettings->bShareMaterialShaderCode;
-		PackagingSettings->bShareMaterialShaderCode = bSharedMaterialLibrary;
-		bool bOriginalbUseSoftGC = false;
-		GConfig->GetBool(TEXT("CookSettings"), TEXT("bUseSoftGC"), bOriginalbUseSoftGC, GEditorIni);
-		GConfig->SetBool(TEXT("CookSettings"), TEXT("bUseSoftGC"), false, GEditorIni);
-		FString OriginalConfigText(TEXT("None"));
-		GConfig->GetString(TEXT("CookSettings"), TEXT("MemoryTriggerGCAtPressureLevel"), OriginalConfigText, GEditorIni);
-		GConfig->SetString(TEXT("CookSettings"), TEXT("MemoryTriggerGCAtPressureLevel"), TEXT("Critical"), GEditorIni);
-		ON_SCOPE_EXIT{
-			PackagingSettings->bShareMaterialShaderCode = bShareMaterialShaderCodeBak;
-			GConfig->SetBool(TEXT("CookSettings"), TEXT("bUseSoftGC"), bOriginalbUseSoftGC, GEditorIni);
-			GConfig->SetString(TEXT("CookSettings"), TEXT("MemoryTriggerGCAtPressureLevel"), *OriginalConfigText, GEditorIni);
-		};
 		for(const auto& LongPackageName:LongPackageNames)
 		{
 			CookAssetsCmdline += FString::Printf(TEXT("%s+"),*LongPackageName);
@@ -752,24 +732,46 @@ TEXT("%s -cooksinglepackagenorefs"),
 		}
 		CookCmdline = FString::Printf(TEXT("%s -MAP=%s"),*CookCmdline,*CookAssetsCmdline);
 		UE_LOG(LogHotPatcherCoreHelper,Verbose,TEXT("CookCommandlet: %s"),*CookCmdline);
-		
-		int32 RetValue = -1;
-		if(RunCmdlet(TEXT("Cook"),CookCmdline,RetValue))
-		{
-			bRet = (RetValue == 0);
-			ESavePackageResult result = bRet ? ESavePackageResult::Success : ESavePackageResult::Error;
-			if(bRet)
-			{
-				FString CookCmdletCookedDir = CookedSavePath.Replace(TEXT("[PLATFORM]"),*PlatformName);
-				FString CookedDir = CookCmdletCookedDir.Replace(TEXT("/CmdletCooked/"),TEXT("/Cooked/"));
 
-				FString TmpMetadataDir = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("Metadata"));
-				FString TmpAssetRegistryBin = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("AssetRegistry.bin"));
-				IFileManager::Get().DeleteDirectory(*TmpMetadataDir,true,true);
-				IFileManager::Get().Delete(*TmpAssetRegistryBin);
-				CopyDirectoryRecursively(CookCmdletCookedDir,CookedDir);
-				IFileManager::Get().DeleteDirectory(*CookCmdletCookedDir,true,true);
+		// The engine Cook commandlet must run in its own process. Running it in-process
+		// from a HotPatcher commandlet breaks World Partition maps on UE5.x: UWorldPartition
+		// registers its cook sub-splitter only when the process is started with -run=Cook,
+		// so the in-process cook fails and later asserts in
+		// FWorldCookPackageSplitter::UnregisterCookPackageSubSplitterFactory.
+		FString UECmdBinary = GetUECmdBinary();
+		FString ProjectFile = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
+		FString CookProcLog = FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("Logs"),FString::Printf(TEXT("HotPatcherCookCmdlet_%s.log"),*PlatformName));
+		FString CookProcParams = FString::Printf(TEXT("\"%s\" -run=Cook %s -unattended -nop4 -NoLogTimes -abslog=\"%s\""),*ProjectFile,*CookCmdline,*CookProcLog);
+		UE_LOG(LogHotPatcherCoreHelper,Display,TEXT("[CookByCmdlet] Launch cook process: %s %s"),*UECmdBinary,*CookProcParams);
+
+		TArray<FString> CookProcOutput;
+		// Single-map cooks normally finish in seconds; the timeout only guards against hangs.
+		if(FMonitoredProcess::RunProcessSynchronous(UECmdBinary,CookProcParams,CookProcOutput,1800.0f))
+		{
+			bRet = true;
+			FString CookCmdletCookedDir = CookedSavePath.Replace(TEXT("[Platform]"),*PlatformName);
+			FString CookedDir = CookCmdletCookedDir.Replace(TEXT("/CmdletCooked/"),TEXT("/Cooked/"));
+
+			FString TmpMetadataDir = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("Metadata"));
+			FString TmpAssetRegistryBin = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("AssetRegistry.bin"));
+			IFileManager::Get().DeleteDirectory(*TmpMetadataDir,true,true);
+			IFileManager::Get().Delete(*TmpAssetRegistryBin);
+			CopyDirectoryRecursively(CookCmdletCookedDir,CookedDir);
+		}
+		else
+		{
+			UE_LOG(LogHotPatcherCoreHelper,Error,TEXT("[CookByCmdlet] Cook process failed, output:"));
+			for(const auto& OutputLine:CookProcOutput)
+			{
+				UE_LOG(LogHotPatcherCoreHelper,Error,TEXT("[CookByCmdlet] %s"),*OutputLine);
 			}
+		}
+
+		// clean the temporary cook directory
+		FString CmdletTempDir = CookedSavePath.Replace(TEXT("[Platform]"),*PlatformName);
+		if(FPaths::DirectoryExists(CmdletTempDir))
+		{
+			IFileManager::Get().DeleteDirectory(*CmdletTempDir,true,true);
 		}
 	}
 

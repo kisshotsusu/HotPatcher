@@ -161,8 +161,8 @@ FString FExportPatchSettings::GetCombinedAdditionalCommandletArgs() const
 	return UFlibPatchParserHelper::MergeOptionsAsCmdline(TArray<FString>{
 		FHotPatcherSettingBase::GetCombinedAdditionalCommandletArgs(),
 		UFlibPatchParserHelper::GetTargetPlatformsCmdLine(GetPakTargetPlatforms()),
-		IsEnableProfiling() ? TEXT("-trace=cpu,loadtimetrace") : TEXT("")
-		,TEXT("AssetGatherAll=true -logcmds=\"LogCookCommandlet Error,LogCook Error,LogAssetRegistryGenerator Error\"")
+		IsEnableProfiling() ? TEXT("-trace=cpu,loadtimetrace") : TEXT(""),
+		TEXT("-RunAsCookCommandlet")
 	});
 }
 

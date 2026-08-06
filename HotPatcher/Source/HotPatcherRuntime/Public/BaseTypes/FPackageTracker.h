@@ -104,8 +104,10 @@ struct FPackageTracker : public FPackageTrackerBase
 	}
 	virtual void OnPackageDeleted(UPackage* Package) override
 	{
-		FName AssetPathName = FName(*Package->GetPathName());
-		RemoveTrackPackage(AssetPathName);
+		// Keep tracked packages registered for the whole mission.
+		// ExecCookCluster forces a GC before every cluster; if GC deletes a tracked
+		// package and we remove it here, the next cluster loads it again and adds it
+		// back, so the same dependency set is cooked forever.
 	}
 	
 public:
@@ -123,11 +125,6 @@ protected:
 			AdditionalPackageSet.Add(PackageName);
 			PackagesPendingSave.Add(PackageName);
 		}
-	}
-	void RemoveTrackPackage(FName PackageName)
-	{
-		AdditionalPackageSet.Remove(PackageName);
-		PackagesPendingSave.Remove(PackageName);
 	}
 	TSet<FName> AdditionalPackageSet;
 	TSet<FName>	 PackagesPendingSave;

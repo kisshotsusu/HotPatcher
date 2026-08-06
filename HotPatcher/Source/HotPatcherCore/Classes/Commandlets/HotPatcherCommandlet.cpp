@@ -16,8 +16,6 @@ DEFINE_LOG_CATEGORY(LogHotPatcherCommandlet);
 
 int32 UHotPatcherCommandlet::Main(const FString& Params)
 {
-	PRIVATE_GIsRunningCookCommandlet = true;
-	
 	Super::Main(Params);
 
 	FCommandLine::Append(TEXT(" -buildmachine"));
