@@ -34,7 +34,7 @@ int32 UHotSingleCookerCommandlet::Main(const FString& Params)
 	
 	bool bExportStatus = false;
 	{
-		FScopedNamedEventStatic ScopedNamedEvent_ForCooker(FColor::Blue,*ExportSingleCookerSetting->MissionName);
+		SCOPED_NAMED_EVENT_TCHAR(*ExportSingleCookerSetting->MissionName, FColor::Blue);
 		TMap<FString, FString> KeyValues = THotPatcherTemplateHelper::GetCommandLineParamsMap(Params);
 		THotPatcherTemplateHelper::ReplaceProperty(*ExportSingleCookerSetting, KeyValues);
 		

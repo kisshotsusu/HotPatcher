@@ -200,7 +200,7 @@ void USingleCookerProxy::CleanClusterCachedPlatformData(const FCookCluster& Cook
 		GetObjectsWithOuter(Package,ExportMap,true);
 		for(const auto& ExportObj:ExportMap)
 		{
-			FScopedNamedEvent CacheExportEvent(FColor::Red,*FString::Printf(TEXT("%s"),*ExportObj->GetName()));
+			SCOPED_NAMED_EVENT_F(TEXT("%s"), FColor::Red, *ExportObj->GetName());
 			if (ExportObj->HasAnyFlags(RF_Transient))
 			{
 				// UE_LOG(LogHotPatcherCoreHelper, Display, TEXT("%s is PreCached."),*ExportObj->GetFullName());
@@ -301,7 +301,7 @@ void USingleCookerProxy::ExecCookCluster(const FCookCluster& CookCluster,bool bW
 {
 	SCOPED_NAMED_EVENT_TEXT("ExecCookCluster",FColor::Red);
 
-	FScopedNamedEvent ClusterCounter(FColor::Green,*FString::Printf(TEXT("%d/%d"),GetClusterCount(FCookClusterPack::EClusterCountType::Executed),GetClusterCount(FCookClusterPack::EClusterCountType::Total)));
+	SCOPED_NAMED_EVENT_F(TEXT("%d/%d"), FColor::Green, GetClusterCount(FCookClusterPack::EClusterCountType::Executed), GetClusterCount(FCookClusterPack::EClusterCountType::Total));
 	// for GC
 	{
 		SCOPED_NAMED_EVENT_TEXT("ExecCookCluster_ForGC",FColor::Red);

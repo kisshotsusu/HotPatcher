@@ -2,6 +2,7 @@
 
 #include "FlibPatchParserHelper.h"
 #include "Engine/AssetManager.h"
+#include "HAL/PlatformMisc.h"
 
 
 FString FChunkInfo::GetShaderLibraryName() const
@@ -31,7 +32,7 @@ FString FChunkInfo::GetShaderLibraryName() const
 
 TArray<FSoftObjectPath> FChunkInfo::GetManagedAssets() const
 {
-	FScopedNamedEventStatic GetManagedAssetsTag(FColor::Red,*FString::Printf(TEXT("GetManagedAssets_%s"),*ChunkName));
+	SCOPED_NAMED_EVENT_F(TEXT("GetManagedAssets_%s"), FColor::Red, *ChunkName);
 	TArray<FSoftObjectPath> NewPaths;
 	
 	UAssetManager& Manager = UAssetManager::Get();

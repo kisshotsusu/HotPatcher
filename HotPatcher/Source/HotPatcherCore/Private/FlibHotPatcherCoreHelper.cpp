@@ -491,7 +491,7 @@ bool UFlibHotPatcherCoreHelper::CookPackage(
 
 	SCOPED_NAMED_EVENT_TEXT("CookPackage",FColor::Red);
 	{
-		FScopedNamedEvent CookPackageEvent(FColor::Red,*FString::Printf(TEXT("%s"),*LongPackageName));
+		SCOPED_NAMED_EVENT_F(TEXT("%s"), FColor::Red, *LongPackageName);
 		// UPackage* Package = UFlibAssetManageHelper::GetPackage(FName(LongPackageName));
 
 		bool bIsFailedPackage = !Package || Package->HasAnyPackageFlags(PKG_EditorOnly);
@@ -2173,7 +2173,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
 		// FExecTimeRecoder PreGeneratePlatformDataTimer(FString::Printf(TEXT("PreGeneratePlatformData %s"),*LongPackageName));
 		FString FakePackageName = FString(TEXT("Package ")) + LongPackageName;
 
-		FScopedNamedEvent CachePackagePlatformDataEvent(FColor::Red,*FString::Printf(TEXT("%s"),*LongPackageName));
+		SCOPED_NAMED_EVENT_F(TEXT("%s"), FColor::Red, *LongPackageName);
 		
 		if(!Package)
     	{
@@ -2193,7 +2193,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
     			{
     				OnPreCacheObjectWithOuter(Package,ExportObj);
     			}
-    			FScopedNamedEvent CacheExportEvent(FColor::Red,*FString::Printf(TEXT("%s"),*ExportObj->GetName()));
+    			SCOPED_NAMED_EVENT_F(TEXT("%s"), FColor::Red, *ExportObj->GetName());
     			if (ExportObj->HasAnyFlags(RF_Transient))
     			{
     				// UE_LOG(LogHotPatcherCoreHelper, Display, TEXT("%s is PreCached."),*ExportObj->GetFullName());
@@ -2308,7 +2308,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
 		// UE_LOG(LogHotPatcherCoreHelper, Display, TEXT("Calling PostSaveRoot on worlds..."));
 		for (auto WorldIt = WorldsToPostSaveRoot.CreateIterator(); WorldIt; ++WorldIt)
 		{
-			FScopedNamedEvent CacheExportEvent(FColor::Red,*FString::Printf(TEXT("World PostSaveRoot")));
+			SCOPED_NAMED_EVENT_TEXT(TEXT("World PostSaveRoot"), FColor::Red);
 			UWorld* World = WorldIt.Key();
 			check(World);
 			World->PostSaveRoot(FObjectPostSaveRootContext(WorldIt.Value()));
@@ -2318,7 +2318,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
 	// When saving concurrently, flush async loading since that is normally done internally in SavePackage
 	if (bStorageConcurrent)
 	{
-		FScopedNamedEvent CacheExportEvent(FColor::Red,*FString::Printf(TEXT("FlushAsyncLoading and ProcessThreadUtilIdle")));
+		SCOPED_NAMED_EVENT_TEXT(TEXT("FlushAsyncLoading and ProcessThreadUtilIdle"), FColor::Red);
 		FlushAsyncLoading();
 		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	}
