@@ -404,7 +404,8 @@ bool UFlibHotPatcherCoreHelper::SavePlatformBulkDataManifest(TMap<ETargetPlatfor
 bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 	TMap<ETargetPlatform, ITargetPlatform*> CookPlatforms, FCookActionCallback CookActionCallback,
 	TMap<FString, FSavePackageContext*> PlatformSavePackageContext, const TMap<FName, FString>& CookedPlatformSavePaths,
-	bool bStorageConcurrent
+	bool bStorageConcurrent,
+	bool bIoStore
 	)
 {
 	if(bStorageConcurrent) 
@@ -423,7 +424,8 @@ bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 				CookActionCallback,
 				PlatformSavePackageContext,
 				CookedPlatformSavePaths,
-				bStorageConcurrent
+				bStorageConcurrent,
+				bIoStore
 			);
 		}
 		if(!bStorageConcurrent && GShaderCompilingManager && GShaderCompilingManager->IsCompiling())
@@ -474,7 +476,8 @@ bool UFlibHotPatcherCoreHelper::CookPackage(
 	FCookActionCallback CookActionCallback,
 	class TMap<FString,FSavePackageContext*> PlatformSavePackageContext,
 	const TMap<FName,FString>& CookedPlatformSavePaths,
-	bool bStorageConcurrent
+	bool bStorageConcurrent,
+	bool bIoStore
 )
 {
 	if(!bStorageConcurrent)
@@ -483,7 +486,7 @@ bool UFlibHotPatcherCoreHelper::CookPackage(
 	}
 	if(UseCookCmdlet(Package,CookPlatforms))
 	{
-		return CookPackagesByCmdlet(TArray<UPackage*>{Package},CookPlatforms,CookActionCallback,CookedPlatformSavePaths);
+		return CookPackagesByCmdlet(TArray<UPackage*>{Package},CookPlatforms,CookActionCallback,CookedPlatformSavePaths,false,bIoStore);
 	}
 	bool bSuccessed = false;
 
@@ -662,7 +665,8 @@ bool UFlibHotPatcherCoreHelper::CookPackagesByCmdlet(
 	const TArray<UPackage*> Packages,
 	TMap<ETargetPlatform, ITargetPlatform*> CookPlatforms, FCookActionCallback CookActionCallback,
 	const TMap<FName, FString>& CookedPlatformSavePaths,
-	bool bSharedMaterialLibrary)
+	bool bSharedMaterialLibrary,
+	bool bIoStore)
 {
 	for(auto& CookPlatformPair:CookPlatforms)
 	{
@@ -690,7 +694,7 @@ bool UFlibHotPatcherCoreHelper::CookPackagesByCmdlet(
 		}
 		RealCookedSavePath = RealCookedSavePath.Replace(TEXT("/Cooked/"),TEXT("/CmdletCooked/"));
 		for(const auto& SoftObjectPath:ObjectPaths){ CookActionCallback.OnCookBegin(SoftObjectPath,CookPlatformPair.Key); }
-		bool bCookStatus = CookByCmdlet(LongPackageNames,CookPlatformPair.Key,RealCookedSavePath, bSharedMaterialLibrary);
+		bool bCookStatus = CookByCmdlet(LongPackageNames,CookPlatformPair.Key,RealCookedSavePath, bSharedMaterialLibrary, bIoStore);
         ESavePackageResult result = bCookStatus ? ESavePackageResult::Success : ESavePackageResult::Error;
 		for(const auto& SoftObjectPath:ObjectPaths){ CookActionCallback.OnAssetCooked(SoftObjectPath,CookPlatformPair.Key,result); }
 		
@@ -700,7 +704,8 @@ bool UFlibHotPatcherCoreHelper::CookPackagesByCmdlet(
 
 bool UFlibHotPatcherCoreHelper::CookByCmdlet(const TArray<FString>& LongPackageNames,
 	ETargetPlatform TargetPlatform, const FString& SaveToCookedDir,
-	bool bSharedMaterialLibrary)
+	bool bSharedMaterialLibrary,
+	bool bIoStore)
 {
 	(void)bSharedMaterialLibrary; // the cook runs in its own process with its own settings
 	bool bRet = false;
@@ -712,9 +717,13 @@ bool UFlibHotPatcherCoreHelper::CookByCmdlet(const TArray<FString>& LongPackageN
 	}
 	
 	FString CookCmdline;
-	CookCmdline = FString::Printf(
-TEXT("%s -cooksinglepackagenorefs"),
-	*CookCmdline);
+	if(!bIoStore)
+	{
+		// Single-package mode is enough for the loose pak flow. IoStore mode cooks the
+		// map's whole dependency set so the engine writes the complete package store
+		// manifest + script objects descriptor that the IoStore commandlet requires.
+		CookCmdline = FString::Printf(TEXT("%s -cooksinglepackagenorefs"), *CookCmdline);
+	}
 	CookCmdline = FString::Printf(TEXT("%s -TARGETPLATFORM=%s"),*CookCmdline,*PlatformName);
 	CookCmdline = FString::Printf(TEXT("%s -OutputDir=%s"),*CookCmdline,*CookedSavePath);
 	CookCmdline = FString::Printf(TEXT("%s -SkipZenStore"),*CookCmdline);
@@ -741,7 +750,7 @@ TEXT("%s -cooksinglepackagenorefs"),
 		FString UECmdBinary = GetUECmdBinary();
 		FString ProjectFile = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		FString CookProcLog = FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("Logs"),FString::Printf(TEXT("HotPatcherCookCmdlet_%s.log"),*PlatformName));
-		FString CookProcParams = FString::Printf(TEXT("\"%s\" -run=Cook %s -unattended -nop4 -NoLogTimes -abslog=\"%s\""),*ProjectFile,*CookCmdline,*CookProcLog);
+		FString CookProcParams = FString::Printf(TEXT("\"%s\" -run=Cook %s -unattended -nop4 -NoLiveCoding -NoLogTimes -abslog=\"%s\""),*ProjectFile,*CookCmdline,*CookProcLog);
 		UE_LOG(LogHotPatcherCoreHelper,Display,TEXT("[CookByCmdlet] Launch cook process: %s %s"),*UECmdBinary,*CookProcParams);
 
 		TArray<FString> CookProcOutput;
@@ -752,10 +761,16 @@ TEXT("%s -cooksinglepackagenorefs"),
 			FString CookCmdletCookedDir = CookedSavePath.Replace(TEXT("[Platform]"),*PlatformName);
 			FString CookedDir = CookCmdletCookedDir.Replace(TEXT("/CmdletCooked/"),TEXT("/Cooked/"));
 
-			FString TmpMetadataDir = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("Metadata"));
-			FString TmpAssetRegistryBin = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("AssetRegistry.bin"));
-			IFileManager::Get().DeleteDirectory(*TmpMetadataDir,true,true);
-			IFileManager::Get().Delete(*TmpAssetRegistryBin);
+			if(!bIoStore)
+			{
+				// Loose mode only needs the cooked content files; IoStore mode keeps the
+				// engine cook metadata (scriptobjects.bin, asset registry, ...) that the
+				// IoStore commandlet requires.
+				FString TmpMetadataDir = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("Metadata"));
+				FString TmpAssetRegistryBin = FPaths::Combine(CookCmdletCookedDir,FApp::GetProjectName(),TEXT("AssetRegistry.bin"));
+				IFileManager::Get().DeleteDirectory(*TmpMetadataDir,true,true);
+				IFileManager::Get().Delete(*TmpAssetRegistryBin);
+			}
 			CopyDirectoryRecursively(CookCmdletCookedDir,CookedDir);
 		}
 		else

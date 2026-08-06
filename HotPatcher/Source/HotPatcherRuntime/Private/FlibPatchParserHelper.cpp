@@ -1050,11 +1050,14 @@ TArray<FPakCommand> UFlibPatchParserHelper::CollectPakCommandByChunk(
 			bool Matched = false;
 			if(bIoStore)
 			{
-				TArray<FString> IoStoreExterns = {TEXT(".uasset"),TEXT(".umap")};
+				// IoStore 模式下，包体文件（含 .uexp 导出数据）必须全部进入容器；
+				// 否则容器不完整、且普通 .pak 里会残留残缺文件。
+				TArray<FString> IoStoreExterns = {TEXT(".uasset"),TEXT(".umap"),TEXT(".uexp")};
 				if(bAllowBulkDataInIoStore)
 				{
 					IoStoreExterns.Add(TEXT(".ubulk"));
 					IoStoreExterns.Add(TEXT(".uptnl"));
+					IoStoreExterns.Add(TEXT(".m.ubulk"));
 				}
 				// bool bIoStoreMatched = false;
 				for(const auto& IoStoreExrern:IoStoreExterns)

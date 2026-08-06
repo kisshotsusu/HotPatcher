@@ -20,6 +20,7 @@
 #include "PakFileUtilities.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Misc/FileHelper.h"
+#include "Misc/MonitoredProcess.h"
 #include "Templates/Function.h"
 #include "BinariesPatchFeature.h"
 #include "HotPatcherCore.h"
@@ -192,7 +193,10 @@ void UPatcherProxy::Init(FPatcherEntitySettingBase* InSetting)
 	Super::Init(InSetting);
 	PlatformSavePackageContexts = UFlibHotPatcherCoreHelper::CreatePlatformsPackageContexts(
 		GetSettingObject()->GetPakTargetPlatforms(),
-		GetSettingObject()->IoStoreSettings.bIoStore,
+		// Always cook to the loose storage directory. IoStore containers are
+		// generated afterwards from the loose cooked files; the Zen-backed package
+		// writer requires an engine Cooker context and asserts inside HotPatcher.
+		false,
 		GetSettingObject()->GetStorageCookedDir()
 		);
 	UFlibAssetManageHelper::UpdateAssetMangerDatabase(true);
@@ -1232,10 +1236,17 @@ namespace PatchWorker
 			TArray<FString> IoStoreCommands;
 			for (const auto& PakFileProxy : Chunk.GetPakFileProxys())
 			{
-				if(!IoStoreSettings.PlatformContainers.Contains(PakFileProxy.Platform))
-					return true;
+				// 平台容器设置：UI 里没有单独配置时，自动使用
+				// Saved/StagedBuilds/<平台名> 作为基础包目录，避免静默跳过 IoStore 生成。
+				FIoStorePlatformContainers DefaultPlatformContainer;
+				FString PlatformName = THotPatcherTemplateHelper::GetEnumNameByValue(PakFileProxy.Platform);
+				DefaultPlatformContainer.BasePackageStagedRootDir.Path = FPaths::Combine(FPaths::ProjectSavedDir(),TEXT("StagedBuilds"),PlatformName);
+				FIoStorePlatformContainers* PlatformContainer = IoStoreSettings.PlatformContainers.Find(PakFileProxy.Platform);
+				if(!PlatformContainer)
+				{
+					PlatformContainer = &DefaultPlatformContainer;
+				}
 				TArray<FString> FinalIoStoreCommandletOptions;
-				FString  PlatformName = THotPatcherTemplateHelper::GetEnumNameByValue(PakFileProxy.Platform);
 				FinalIoStoreCommandletOptions.Add(FString::Printf(TEXT("-AlignForMemoryMapping=%d"),UFlibHotPatcherCoreHelper::GetPlatformByName(PlatformName)->GetMemoryMappingAlignment()));
 				FinalIoStoreCommandletOptions.Append(AdditionalIoStoreCommandletOptions);
 				FString IoStoreCommandletOptions;
@@ -1248,13 +1259,14 @@ namespace PatchWorker
 
 				FString PatchSource;
 				
-				FString BasePacakgeRootDir = FPaths::ConvertRelativePathToFull(UFlibPatchParserHelper::ReplaceMarkPath(Context.GetSettingObject()->GetIoStoreSettings().PlatformContainers.Find(PakFileProxy.Platform)->BasePackageStagedRootDir.Path));
+				FString BasePacakgeRootDir = FPaths::ConvertRelativePathToFull(UFlibPatchParserHelper::ReplaceMarkPath(PlatformContainer->BasePackageStagedRootDir.Path));
 				if(FPaths::DirectoryExists(BasePacakgeRootDir))
 				{
-					PatchSource = FPaths::Combine(BasePacakgeRootDir,FApp::GetProjectName(),FString::Printf(TEXT("Content/Paks/%s*.utoc"),FApp::GetProjectName()));
+					// Base containers are named e.g. pakchunk0-Windows.utoc / global.utoc
+					PatchSource = FPaths::Combine(BasePacakgeRootDir,FApp::GetProjectName(),TEXT("Content/Paks/*.utoc"));
 				}
 					
-				FString PatchSoruceSetting = UFlibPatchParserHelper::ReplaceMarkPath(IoStoreSettings.PlatformContainers.Find(PakFileProxy.Platform)->PatchSourceOverride.FilePath);
+				FString PatchSoruceSetting = UFlibPatchParserHelper::ReplaceMarkPath(PlatformContainer->PatchSourceOverride.FilePath);
 				if(FPaths::FileExists(PatchSoruceSetting))
 				{
 					PatchSource = PatchSoruceSetting;
@@ -1264,7 +1276,7 @@ namespace PatchWorker
 					UFlibPatchParserHelper::GetPakCommandStrByCommands(PakFileProxy.PakCommands, ReplacePakListTexts,true),
 					*PakListFile,
 					FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
-				FString PatchDiffCommand = IoStoreSettings.PlatformContainers.Find(PakFileProxy.Platform)->bGenerateDiffPatch ?
+				FString PatchDiffCommand = PlatformContainer->bGenerateDiffPatch ?
 					FString::Printf(TEXT("-PatchSource=\"%s\" -GenerateDiffPatch"),*PatchSource):TEXT("");
 					
 				IoStoreCommands.Emplace(
@@ -1279,12 +1291,10 @@ namespace PatchWorker
 				FString IoStoreCommandsFile = FPaths::Combine(Chunk.GetPakFileProxys()[0].StorageDirectory,FString::Printf(TEXT("%s_IoStoreCommands.txt"),*Chunk.ChunkName));
 					
 				FString PlatformGlocalContainers;
-				// FString BasePacakgeRootDir = FPaths::ConvertRelativePathToFull(UFlibPatchParserHelper::ReplaceMarkPath(Context.GetSettingObject()->GetIoStoreSettings().PlatformContainers.Find(PakFileProxy.Platform)->BasePackageStagedRootDir.Path));
-				if(FPaths::DirectoryExists(BasePacakgeRootDir))
-				{
-					PlatformGlocalContainers = FPaths::Combine(BasePacakgeRootDir,FApp::GetProjectName(),TEXT("Content/Paks/global.utoc"));
-				}
-				FString GlobalUtocFile = UFlibPatchParserHelper::ReplaceMarkPath(IoStoreSettings.PlatformContainers.Find(PakFileProxy.Platform)->GlobalContainersOverride.FilePath);
+				// Output the patch's own global container next to the patch pak instead of
+				// overwriting the base build's global.utoc.
+				PlatformGlocalContainers = FPaths::Combine(PakFileProxy.StorageDirectory,TEXT("global.utoc"));
+				FString GlobalUtocFile = UFlibPatchParserHelper::ReplaceMarkPath(PlatformContainer->GlobalContainersOverride.FilePath);
 				if(FPaths::FileExists(GlobalUtocFile))
 				{
 					PlatformGlocalContainers = GlobalUtocFile;
@@ -1292,19 +1302,35 @@ namespace PatchWorker
 					
 				FString PlatformCookDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(Context.GetSettingObject()->GetStorageCookedDir(),PlatformName));
 
-				if(FPaths::FileExists(PlatformGlocalContainers))
+				if(!FPaths::DirectoryExists(PlatformCookDir))
 				{
-					FString CookOrderFile = FPaths::Combine(Context.GetSettingObject()->GetSaveAbsPath(),Context.NewVersionChunk.ChunkName,PlatformName,TEXT("CookOpenOrder.txt"));
+					UE_LOG(LogHotPatcher,Error,TEXT("IoStore 生成失败：未找到 Cook 目录 %s，请确认补丁任务已完成资源 Cook。"),*PlatformCookDir);
+					return false;
+				}
+				if(!FPaths::DirectoryExists(BasePacakgeRootDir) && !FPaths::FileExists(GlobalUtocFile))
+				{
+					UE_LOG(LogHotPatcher,Error,TEXT("IoStore 生成失败：未找到基础包目录 %s（请填写 IoStore 平台容器设置中的 BasePackageStagedRootDir，例如 Saved/StagedBuilds/Windows）。"),*BasePacakgeRootDir);
+					return false;
+				}
+				{
+					IFileManager::Get().MakeDirectory(*FPaths::GetPath(PlatformGlocalContainers),true);
 					FFileHelper::SaveStringArrayToFile(IoStoreCommands,*IoStoreCommandsFile);
+					// The IoStore commandlet needs the script objects descriptor when the
+					// cooked directory is loose (no Zen project store).
+					FString ScriptObjectsFile = FPaths::Combine(PlatformCookDir,FApp::GetProjectName(),TEXT("Metadata"),TEXT("scriptobjects.bin"));
+					FString ScriptObjectsCommand = FPaths::FileExists(ScriptObjectsFile) ?
+						FString::Printf(TEXT("-ScriptObjects=\"%s\""),*ScriptObjectsFile) : TEXT("");
+					FString PackageStoreManifestFile = FPaths::Combine(PlatformCookDir,FApp::GetProjectName(),TEXT("Metadata"),TEXT("packagestore.manifest"));
+					FString PackageStoreCommand = FPaths::FileExists(PackageStoreManifestFile) ?
+						FString::Printf(TEXT("-PackageStoreManifest=\"%s\""),*PackageStoreManifestFile) : TEXT("");
 					FString IoStoreCommandlet = FString::Printf(
-						TEXT("-CreateGlobalContainer=\"%s\" -CookedDirectory=\"%s\" -Commands=\"%s\" -CookerOrder=\"%s\" -TargetPlatform=\"%s\" %s %s"),
-						// *UFlibHotPatcherCoreHelper::GetUECmdBinary(),
-						// *UFlibPatchParserHelper::GetProjectFilePath(),
+						TEXT("-CreateGlobalContainer=\"%s\" -CookedDirectory=\"%s\" -Commands=\"%s\" -TargetPlatform=\"%s\" %s %s %s %s"),
 						*PlatformGlocalContainers,
 						*PlatformCookDir,
 						*IoStoreCommandsFile,
-						*CookOrderFile,
 						*PlatformName,
+						*ScriptObjectsCommand,
+						*PackageStoreCommand,
 						*IoStoreCommandletOptions,
 						*OutputDirectoryCmd
 					);
@@ -1319,16 +1345,13 @@ namespace PatchWorker
 					UE_LOG(LogHotPatcher,Log,TEXT("%s"),*IoStoreNativeCommandlet);
 					// CreateIoStoreContainerFiles(*IoStoreCommandlet);
 
-					TSharedPtr<FProcWorkerThread> IoStoreProc = MakeShareable(
-						new FProcWorkerThread(
-							TEXT("PakIoStoreThread"),
-							UFlibHotPatcherCoreHelper::GetUECmdBinary(),
-							FString::Printf(TEXT("\"%s\" -run=IoStore %s"), *UFlibPatchParserHelper::GetProjectFilePath(),*IoStoreCommandlet)
-						)
-					);
-					IoStoreProc->ProcOutputMsgDelegate.BindStatic(&::ReceiveOutputMsg);
-					IoStoreProc->Execute();
-					IoStoreProc->Join();
+					FString IoStoreProcParams = FString::Printf(TEXT("\"%s\" -run=IoStore -NoLiveCoding %s -unattended -nop4 -NoLogTimes"), *UFlibPatchParserHelper::GetProjectFilePath(),*IoStoreCommandlet);
+					TArray<FString> IoStoreProcOutput;
+					if(!FMonitoredProcess::RunProcessSynchronous(UFlibHotPatcherCoreHelper::GetUECmdBinary(),IoStoreProcParams,IoStoreProcOutput,900.0f))
+					{
+						UE_LOG(LogHotPatcher,Error,TEXT("Create IoStore container failed for chunk %s platform %s"),*Chunk.ChunkName,*PlatformName);
+						return false;
+					}
 				}
 			}
 		}

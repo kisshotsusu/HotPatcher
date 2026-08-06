@@ -74,7 +74,8 @@ void USingleCookerProxy::Init(FPatcherEntitySettingBase* InSetting)
 	{
 		PlatformSavePackageContexts = UFlibHotPatcherCoreHelper::CreatePlatformsPackageContexts(
 			GetSettingObject()->CookTargetPlatforms,
-			GetSettingObject()->IoStoreSettings.bIoStore,
+			// See UPatcherProxy::Init: the cooker must always use the loose writer.
+			false,
 			GetSettingObject()->GetStorageCookedAbsDir()
 			);
 	}
@@ -370,7 +371,8 @@ void USingleCookerProxy::ExecCookCluster(const FCookCluster& CookCluster,bool bW
 						CookCluster.CookActionCallback,
 						SavePackageContextsNameMapping,
 						CookedPlatformSavePaths,
-						bCanConcurrentSave
+						bCanConcurrentSave,
+						GetSettingObject()->IoStoreSettings.bIoStore
 						);
 	}
 	// clean cached ddd / release memory

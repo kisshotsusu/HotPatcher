@@ -89,7 +89,8 @@ public:
 		FCookActionCallback CookActionCallback,
 		class TMap<FString,FSavePackageContext*> PlatformSavePackageContext,
 		const TMap<FName,FString>& CookedPlatformSavePaths,
-		bool bStorageConcurrent
+		bool bStorageConcurrent,
+		bool bIoStore = false
 	);
 	
 	static bool CookPackage(
@@ -98,7 +99,8 @@ public:
 		FCookActionCallback CookActionCallback,
 		class TMap<FString,FSavePackageContext*> PlatformSavePackageContext,
 		const TMap<FName,FString>& CookedPlatformSavePaths,
-		bool bStorageConcurrent
+		bool bStorageConcurrent,
+		bool bIoStore = false
 	);
 
 	static bool UseCookCmdlet(UPackage* Package,TMap<ETargetPlatform,ITargetPlatform*> CookPlatforms);
@@ -108,13 +110,15 @@ public:
 		TMap<ETargetPlatform,ITargetPlatform*> CookPlatforms,
 		FCookActionCallback CookActionCallback,
 		const TMap<FName,FString>& CookedPlatformSavePaths,
-		bool bSharedMaterialLibrary = false
+		bool bSharedMaterialLibrary = false,
+		bool bIoStore = false
 	);
 	static bool CookByCmdlet(
 		const TArray<FString>& LongPackageNames,
 		ETargetPlatform TargetPlatform,
 		const FString& SaveToCookedDir = TEXT(""),
-		bool bSharedMaterialLibrary = false
+		bool bSharedMaterialLibrary = false,
+		bool bIoStore = false
 	);
 
 	static void CookChunkAssets(

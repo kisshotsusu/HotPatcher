@@ -162,7 +162,7 @@ FString FExportPatchSettings::GetCombinedAdditionalCommandletArgs() const
 		FHotPatcherSettingBase::GetCombinedAdditionalCommandletArgs(),
 		UFlibPatchParserHelper::GetTargetPlatformsCmdLine(GetPakTargetPlatforms()),
 		IsEnableProfiling() ? TEXT("-trace=cpu,loadtimetrace") : TEXT(""),
-		TEXT("-RunAsCookCommandlet")
+		TEXT("-RunAsCookCommandlet -NoLiveCoding")
 	});
 }
 

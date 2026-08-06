@@ -958,7 +958,7 @@ bool UFlibAssetManageHelper::MakePakCommandFromLongPackageName(
 	{
 		if (UFlibAssetManageHelper::CombineCookedAssetCommand(CookedAssetAbsPath, CookedAssetRelativePath,/* InCookParams,*/ FinalCookedPakCommand,FinalCookedIoStoreCommand,IsIoStoreAsset))
 		{
-			if (!!CookedAssetRelativePath.Num() && !!FinalCookedPakCommand.Num())
+			if (!!CookedAssetRelativePath.Num() && (!!FinalCookedPakCommand.Num() || !!FinalCookedIoStoreCommand.Num()))
 			{
 				InReceivePakCommand(FinalCookedPakCommand,FinalCookedIoStoreCommand, CookedAssetRelativePath[0],InAssetLongPackageName,LocalSynchronizationObject);
 				bStatus = true;
@@ -999,7 +999,13 @@ bool UFlibAssetManageHelper::CombineCookedAssetCommand(
 		if(!IsIoStoreAsset(InAbsPath[index]))
 			OutPakCommand.Add(CurrentCommand);
 		else
+		{
 			OutIoStoreCommand.Add(CurrentCommand);
+			// IoStore 资产同时保留在普通 Pak 列表：
+			// 1) 保证普通 .pak 非空、能正常生成（游戏按 .pak+.utoc 成对挂载）；
+			// 2) IoStore 客户端会忽略 .pak 里的包文件，实际内容以容器为准。
+			OutPakCommand.Add(CurrentCommand);
+		}
 	}
 	return true;
 }
