@@ -40,7 +40,7 @@ bool FBinaryDelta::CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>&
 	const int64 NewNum = NewData.Num();
 
 	// Index of Old: first position of each BlockSize-window hash. Bounds memory to ~|Old|/BlockSize entries.
-	// NOTE: 只存每个哈希的【首次】出现位置。FNV-1a 为 32 位，对大 Old（>2GiB 有数百万窗口）碰撞概率不低；
+	// NOTE: 只存每个哈希的【首次】出现位置。多项式哈希为 32 位，对大 Old（>2GiB 有数百万窗口）碰撞概率不低；
 	// 碰撞时真实可 COPY 的块会被当 INSERT，patch 体积膨胀。逐字节扩展（下方 while 循环）保证不会产生错误
 	// 数据，仅压缩率退化（明显弱于真 HDiffPatch）。若要逼近其压缩率，需更强哈希或全位置索引+最长匹配。
 	TMap<uint32, int64> OldHashToPos;
@@ -61,18 +61,21 @@ bool FBinaryDelta::CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>&
 	{
 		uint8 Buf[16];
 		OutPatch.Add(0x01); // OP_COPY
-		*reinterpret_cast<uint64*>(&Buf[0]) = static_cast<uint64>(Offset);
-		*reinterpret_cast<uint64*>(&Buf[8]) = static_cast<uint64>(Length);
+		FMemory::Memcpy(&Buf[0], &Offset, 8);   // little-endian on LE platforms; see header note
+		FMemory::Memcpy(&Buf[8], &Length, 8);
 		OutPatch.Append(Buf, 16);
 	};
 	auto EmitInsert = [&](const uint8* Ptr, int32 Length)
 	{
 		uint8 Buf[4];
 		OutPatch.Add(0x02); // OP_INSERT
-		*reinterpret_cast<uint32*>(&Buf[0]) = static_cast<uint32>(Length);
+		const uint32 Len32 = static_cast<uint32>(Length);
+		FMemory::Memcpy(&Buf[0], &Len32, 4);
 		OutPatch.Append(Buf, 4);
 		OutPatch.Append(Ptr, Length);
 	};
+
+	uint32 CurrentHash = 0;
 
 	TArray<uint8> Pending; // buffered literal bytes between copies
 	auto FlushPending = [&]()
@@ -90,24 +93,35 @@ bool FBinaryDelta::CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>&
 		bool bMatched = false;
 		if (Pos + BlockSize <= NewNum && OldNum >= BlockSize)
 		{
-			const uint32 h = BinaryDeltaPrivate::HashBlock(New, Pos, BlockSize);
-			const int64* OldPosPtr = OldHashToPos.Find(h);
+			if (Pos == 0)
+			{
+				CurrentHash = BinaryDeltaPrivate::HashBlock(New, 0, BlockSize);
+			}
+			else
+			{
+				CurrentHash = BinaryDeltaPrivate::RollHash(CurrentHash, New[Pos - 1], New[Pos + BlockSize - 1]);
+			}
+
+			const int64* OldPosPtr = OldHashToPos.Find(CurrentHash);
 			if (OldPosPtr)
 			{
-				int64 OldPos = *OldPosPtr;
-				const int64 MaxLen = FMath::Min(NewNum - Pos, OldNum - OldPos);
-				int64 MatchLen = 0;
-				// Extend the matched block byte-by-byte (hash collision already ruled out for the seed window).
-				while (MatchLen < MaxLen && New[Pos + MatchLen] == Old[OldPos + MatchLen])
+				const int64 OldPos = *OldPosPtr;
+				// Verify the actual bytes — rolling-hash collisions must not corrupt data.
+				if (FMemory::Memcmp(New + Pos, Old + OldPos, BlockSize) == 0)
 				{
-					++MatchLen;
-				}
-				if (MatchLen >= MinMatch)
-				{
-					FlushPending();
-					EmitCopy(OldPos, MatchLen);
-					Pos += MatchLen;
-					bMatched = true;
+					const int64 MaxLen = FMath::Min(NewNum - Pos, OldNum - OldPos);
+					int64 MatchLen = BlockSize;
+					while (MatchLen < MaxLen && New[Pos + MatchLen] == Old[OldPos + MatchLen])
+					{
+						++MatchLen;
+					}
+					if (MatchLen >= MinMatch)
+					{
+						FlushPending();
+						EmitCopy(OldPos, MatchLen);
+						Pos += MatchLen;
+						bMatched = true;
+					}
 				}
 			}
 		}
@@ -171,8 +185,12 @@ bool FBinaryDelta::PatchDiff(const TArray<uint8>& OldData, const TArray<uint8>& 
 			const uint64 Offset = ReadU64(OpPos);
 			const uint64 Length = ReadU64(OpPos + 8);
 			OpPos += 16;
-			if (Offset + Length > static_cast<uint64>(OldData.Num())) return false;
-			FMemory::Memcpy(Out + OutPos, Old + Offset, static_cast<SIZE_T>(Length));
+			if (Offset >= static_cast<uint64>(OldData.Num())) return false;
+			if (Length > static_cast<uint64>(OldData.Num()) - Offset) return false;
+			if (static_cast<uint64>(OutPos) > Header.NewSize ||
+			    Length > Header.NewSize - static_cast<uint64>(OutPos)) return false;
+
+			FMemory::Memcpy(Out + OutPos, Old + static_cast<SIZE_T>(Offset), static_cast<SIZE_T>(Length));
 			OutPos += static_cast<int64>(Length);
 		}
 		else if (Tag == 0x02) // OP_INSERT: literal bytes from the patch
@@ -181,6 +199,10 @@ bool FBinaryDelta::PatchDiff(const TArray<uint8>& OldData, const TArray<uint8>& 
 			const uint32 Length = ReadU32(OpPos);
 			OpPos += 4;
 			if (OpPos + static_cast<int64>(Length) > PatchNum) return false;
+
+			if (static_cast<uint64>(OutPos) > Header.NewSize ||
+			    static_cast<uint64>(Length) > Header.NewSize - static_cast<uint64>(OutPos)) return false;
+
 			FMemory::Memcpy(Out + OutPos, Patch + OpPos, static_cast<SIZE_T>(Length));
 			OpPos += static_cast<int64>(Length);
 			OutPos += static_cast<int64>(Length);
@@ -294,9 +316,12 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 		{
 			uint8 P[16];
 			if (!ReadExact(PatchHandle.Get(), P, 16)) { bOk = false; break; }
-			const uint64 Offset = *reinterpret_cast<uint64*>(&P[0]);
-			const uint64 Length = *reinterpret_cast<uint64*>(&P[8]);
-			if (Offset + Length > static_cast<uint64>(OldFileSize)) { bOk = false; break; }
+			uint64 Offset;
+			uint64 Length;
+			FMemory::Memcpy(&Offset, &P[0], 8);
+			FMemory::Memcpy(&Length, &P[8], 8);
+			if (Offset >= static_cast<uint64>(OldFileSize) ||
+			    Length > static_cast<uint64>(OldFileSize) - Offset) { bOk = false; break; }
 
 			uint64 Remaining = Length;
 			while (Remaining > 0)
@@ -315,12 +340,13 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 		{
 			uint8 L[4];
 			if (!ReadExact(PatchHandle.Get(), L, 4)) { bOk = false; break; }
-			const uint32 Length = *reinterpret_cast<uint32*>(&L[0]);
+			uint32 Length;
+			FMemory::Memcpy(&Length, &L[0], 4);
 			uint64 Remaining = static_cast<uint64>(Length);
 			while (Remaining > 0)
 			{
 				const int64 ToRead = static_cast<int64>(FMath::Min<uint64>(Remaining, static_cast<uint64>(Chunk)));
-				if (PatchHandle->Read(B, ToRead) != ToRead) { bOk = false; break; }
+				if (!ReadExact(PatchHandle.Get(), B, ToRead)) { bOk = false; break; }
 				if (!WriteAll(B, ToRead)) { bOk = false; break; }
 				Remaining -= static_cast<uint64>(ToRead);
 			}

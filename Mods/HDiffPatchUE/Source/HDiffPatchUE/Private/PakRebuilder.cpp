@@ -113,10 +113,9 @@ bool FBinaryMerge::MergePaks(const FString& OutputPak, const TArray<FString>& In
 		{
 			continue;
 		}
-		FPakFile* Pak = new FPakFile(*PakPath, false);
+		TUniquePtr<FPakFile> Pak(new FPakFile(*PakPath, false));
 		if (!Pak || !Pak->IsValid())
 		{
-			delete Pak;
 			continue;
 		}
 		// Enumerate every file in the source pak (verify GetFileList name on 5.8).
@@ -133,7 +132,6 @@ bool FBinaryMerge::MergePaks(const FString& OutputPak, const TArray<FString>& In
 				All.Add(MoveTemp(E));
 			}
 		}
-		delete Pak;
 	}
 	if (All.Num() == 0)
 	{

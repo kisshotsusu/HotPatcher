@@ -16,8 +16,14 @@ public:
 		IModularFeatures::Get().RegisterModularFeature(BINARIES_DIFF_PATCH_FEATURE_NAME, Feature.Get());
 		UE_LOG(LogHDiffPatchUE, Log,
 			TEXT("HDiffPatchUE (self-contained binary delta) registered as '%s'. "
-			     "Binary merge for .pak and .utoc/.ucas is now available to HotPatcher BinariesPatch."),
-			*Feature->GetFeatureName());
+			     "Byte-level CreateDiff/PatchDiff is available. Pak rebuild (FBinaryMerge) is %s."),
+			*Feature->GetFeatureName(),
+		#if HDIFFPATCHUE_ENABLE_PAK_REBUILD
+			TEXT("enabled")
+		#else
+			TEXT("disabled")
+		#endif
+		);
 	}
 
 	virtual void ShutdownModule() override

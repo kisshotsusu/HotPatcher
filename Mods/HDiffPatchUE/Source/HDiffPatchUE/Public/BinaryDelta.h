@@ -10,11 +10,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GenericPlatform/GenericPlatform.h"
 
 struct FBinaryDeltaHeader
 {
 	uint32 Magic;   // 'BDIF'
-	uint32 Version; // 1
+	uint32 Version; // 1. Low bit set = big-endian payload (0x...1); clear = little-endian.
 	uint64 OldSize;
 	uint64 NewSize;
 };
@@ -22,20 +23,47 @@ struct FBinaryDeltaHeader
 namespace BinaryDeltaPrivate
 {
 	static const uint32 kBDifMagic   = 0x42444946; // 'B','D','I','F'
-	static const uint32 kBDifVersion = 1;
+	// Bit 31 of Version marks big-endian payload; clear means little-endian.
+	static const uint32 kBDifVersion = PLATFORM_LITTLE_ENDIAN ? 1u : 0x80000001u;
 	static const int32  kBlockSize   = 64; // hash block / minimum match window
 	static const int32  kMinMatch    = 64; // a COPY is only worth emitting above this length
 
+	static constexpr uint32 kHashBase = 31u;
+
+	// kBlockSize-th power of kHashBase, computed at compile time.
+	struct FHashPow
+	{
+		static constexpr uint32 Compute()
+		{
+			uint32 Result = 1;
+			for (int32 i = 0; i < kBlockSize; ++i)
+			{
+				Result *= kHashBase;
+			}
+			return Result;
+		}
+	};
+
+	static constexpr uint32 kHashPow = FHashPow::Compute();
+
 	FORCEINLINE uint32 HashBlock(const uint8* Data, int64 Pos, int32 Len)
 	{
-		// FNV-1a 32-bit over Len bytes.
-		uint32 Hash = 2166136261u;
-		for (int32 i = 0; i < Len; ++i)
+		// Polynomial rolling hash (Rabin-Karp style), uint32 natural overflow.
+		uint32 Hash = 0;
 		{
-			Hash ^= Data[Pos + i];
-			Hash *= 16777619u;
+			for (int32 i = 0; i < Len; ++i)
+			{
+				Hash = Hash * kHashBase + Data[Pos + i];
+			}
 		}
 		return Hash;
+	}
+
+	// Advance the sliding window by one byte: remove OutByte from front, add InByte at back.
+	// All arithmetic uses uint32 natural overflow — no explicit modulus needed.
+	FORCEINLINE uint32 RollHash(uint32 Hash, uint8 OutByte, uint8 InByte)
+	{
+		return (Hash - static_cast<uint32>(OutByte) * kHashPow) * kHashBase + InByte;
 	}
 }
 
