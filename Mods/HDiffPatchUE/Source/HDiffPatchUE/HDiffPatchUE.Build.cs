@@ -28,6 +28,6 @@ public class HDiffPatchUE : ModuleRules
 		// whose signatures DRIFT between UE versions. Default 0 => guaranteed-build core that only
 		// provides the byte-level binary delta. Flip to 1 to compile FBinaryMerge, then VERIFY the
 		// EncodePakEntriesIntoIndex/FPakInfo signatures against your UE 5.8 engine headers and adapt.
-		Definitions.Add("HDIFFPATCHUE_ENABLE_PAK_REBUILD=0");
+		PublicDefinitions.Add("HDIFFPATCHUE_ENABLE_PAK_REBUILD=0");
 	}
 }

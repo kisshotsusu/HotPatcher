@@ -251,7 +251,7 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 	FBinaryDeltaHeader Header;
 	{
 		uint8 HdrBuf[sizeof(FBinaryDeltaHeader)];
-		if (PatchHandle->Read(HdrBuf, sizeof(HdrBuf)) != static_cast<int64>(sizeof(HdrBuf)))
+		if (!PatchHandle->Read(HdrBuf, sizeof(HdrBuf)))
 		{
 			UE_LOG(LogTemp, Warning, TEXT("BinaryDelta::PatchDiffToFile: 补丁文件过小/无法读取头"));
 			return false;
@@ -281,25 +281,11 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 
 	auto ReadExact = [&](IFileHandle* H, uint8* Dst, int64 Want) -> bool
 	{
-		int64 Got = 0;
-		while (Got < Want)
-		{
-			const int64 N = H->Read(Dst + Got, Want - Got);
-			if (N <= 0) return false;
-			Got += N;
-		}
-		return true;
+		return H->Read(Dst, Want);
 	};
 	auto WriteAll = [&](const uint8* Src, int64 Want) -> bool
 	{
-		int64 Written = 0;
-		while (Written < Want)
-		{
-			const int64 N = OutHandle->Write(Src + Written, Want - Written);
-			if (N <= 0) return false;
-			Written += N;
-		}
-		return true;
+		return OutHandle->Write(Src, Want);
 	};
 
 	uint64 OutPos = 0;
@@ -308,9 +294,7 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 	for (;;)
 	{
 		uint8 Tag = 0;
-		const int64 TagRead = PatchHandle->Read(&Tag, 1);
-		if (TagRead == 0) break;          // 干净的流结束
-		if (TagRead != 1) { bOk = false; break; }
+		if (!PatchHandle->Read(&Tag, 1)) break; // EOF or read error; validated below via size check
 
 		if (Tag == 0x01) // OP_COPY：从基础文件按偏移分块读取
 		{

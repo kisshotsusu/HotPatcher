@@ -353,11 +353,9 @@ namespace THotPatcherTemplateHelper
 				MaxEnumValue
 			);
 		}
-#if ENGINE_MAJOR_VERSION > 4 || ENGINE_MINOR_VERSION > 25
+
 		UEnumIns->SetEnums(EnumNamePairs,UEnum::ECppForm::EnumClass,EEnumFlags::None,true);
-#else
-		UEnumIns->SetEnums(EnumNamePairs,UEnum::ECppForm::EnumClass,true);
-#endif
+
 		return EnumNamePairs;
 	}
 }

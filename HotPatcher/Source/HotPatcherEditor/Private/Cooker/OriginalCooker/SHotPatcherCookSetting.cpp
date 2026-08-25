@@ -33,7 +33,6 @@ void SHotPatcherCookSetting::Construct(const FArguments& InArgs, TSharedPtr<FHot
 					.DefaultLabel(LOCTEXT("SettingListSettingNameColumnHeader", "Setting"))
 					.FillWidth(1.0f)
 				)
-				.ItemHeight(16.0f)
 				.ListItemsSource(&SettingList)
 				.OnGenerateRow(this, &SHotPatcherCookSetting::HandleCookSettingListViewGenerateRow)
 				.SelectionMode(ESelectionMode::None)

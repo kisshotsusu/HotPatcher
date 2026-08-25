@@ -14,16 +14,15 @@ public:
 		Feature = MakeShared<FHDiffPatchFeature>();
 		// Register under the same Modular Feature name HotPatcher's GenerateBinariesPatch queries.
 		IModularFeatures::Get().RegisterModularFeature(BINARIES_DIFF_PATCH_FEATURE_NAME, Feature.Get());
+	#if HDIFFPATCHUE_ENABLE_PAK_REBUILD
+		const TCHAR* PakRebuildStatus = TEXT("enabled");
+	#else
+		const TCHAR* PakRebuildStatus = TEXT("disabled");
+	#endif
 		UE_LOG(LogHDiffPatchUE, Log,
 			TEXT("HDiffPatchUE (self-contained binary delta) registered as '%s'. "
 			     "Byte-level CreateDiff/PatchDiff is available. Pak rebuild (FBinaryMerge) is %s."),
-			*Feature->GetFeatureName(),
-		#if HDIFFPATCHUE_ENABLE_PAK_REBUILD
-			TEXT("enabled")
-		#else
-			TEXT("disabled")
-		#endif
-		);
+			*Feature->GetFeatureName(), PakRebuildStatus);
 	}
 
 	virtual void ShutdownModule() override
