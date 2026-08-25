@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0-reimpl",
+	"FriendlyName": "HDiffPatchUE (self-contained reimplementation)",
+	"Description": "Binary diff/patch feature for HotPatcher BinariesPatch. Self-contained byte-level delta (no external HDiffPatch C lib required). Format-agnostic: works for .pak and .utoc/.ucas. Rebuilt per imzlp articles https://imzlp.com/posts/25136/ and https://imzlp.com/posts/12188/ to replace the dead hxhb/HDiffPatchUE submodule.",
+	"Category": "HotPatcher",
+	"CreatedBy": "rebuilt",
+	"CreatedByURL": "https://imzlp.com/",
+	"DocsURL": "https://imzlp.com/posts/25136/",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "HDiffPatchUE",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault"
+		}
+	]
+}

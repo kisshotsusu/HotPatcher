@@ -2,6 +2,7 @@
 
 #include "BinariesPatchFeature.h"
 #include "HotPatcherTemplateHelper.hpp"
+#include "Misc/FileHelper.h"
 
 #include "Features/IModularFeatures.h"
 #include "Misc/EnumRange.h"
@@ -9,6 +10,26 @@
 #include "UObject/Class.h"
 
 DECAL_GETCPPTYPENAME_SPECIAL(EBinariesPatchFeature)
+
+bool IBinariesDiffPatchFeature::PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath)
+{
+	// 默认实现：把文件缓冲进内存后走 PatchDiff（与旧行为一致，仍受 ~2 GiB 限制）。
+	// 流式能力由具体特性（如 HDiffPatchUE）重写提供。
+	TArray<uint8> OldData, PatchData, NewData;
+	if (!FFileHelper::LoadFileToArray(OldData, *OldFilePath))
+	{
+		return false;
+	}
+	if (!FFileHelper::LoadFileToArray(PatchData, *PatchFilePath))
+	{
+		return false;
+	}
+	if (!PatchDiff(OldData, PatchData, NewData) || NewData.Num() == 0)
+	{
+		return false;
+	}
+	return FFileHelper::SaveArrayToFile(NewData, *OutNewFilePath);
+}
 
 void OnBinariesModularFeatureRegistered(const FName& Type, IModularFeature* ModularFeature)
 {

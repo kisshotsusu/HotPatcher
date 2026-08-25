@@ -23,6 +23,12 @@ struct IBinariesDiffPatchFeature: public IModularFeature
 	virtual bool CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>& OldData, TArray<uint8>& OutPatch) = 0;
 	virtual bool PatchDiff(const TArray<uint8>& OldData, const TArray<uint8>& PatchData, TArray<uint8>& OutNewData) = 0;
 	virtual FString GetFeatureName()const = 0;
+
+	// File-based apply. The default implementation buffers files into memory (same ~2 GiB ceiling
+	// as PatchDiff); streaming-capable features (e.g. HDiffPatchUE) override this to apply directly
+	// from disk in fixed-size chunks, removing the memory ceiling for large files.
+	// Declared non-pure so existing features keep compiling without change.
+	virtual bool PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath);
 };
 
 class FBinariesPatchFeatureModule : public IModuleInterface
