@@ -94,7 +94,10 @@ void UFlibAssetManageHelper::UpdateAssetMangerDatabase(bool bForceRefresh)
 	SCOPED_NAMED_EVENT_TEXT("UpdateAssetMangerDatabase",FColor::Red);
 #if WITH_EDITOR
 	UAssetManager& AssetManager = UAssetManager::Get();
-	AssetManager.UpdateManagementDatabase(bForceRefresh);
+	AssetManager.UpdateManagementDatabase(
+		bForceRefresh
+			? EUpdateManagementDatabaseFlags::BuildChunkMap | EUpdateManagementDatabaseFlags::ForceRefresh
+			: EUpdateManagementDatabaseFlags::BuildChunkMap);
 #endif
 }
 
@@ -388,7 +391,7 @@ FAssetDetail UFlibAssetManageHelper::GetAssetDetailByPackageName(const FString& 
 	SCOPED_NAMED_EVENT_TEXT("UFlibAssetManageHelper::GetAssetDetailByPackageName",FColor::Red);
 	FAssetDetail AssetDetail;
 	UAssetManager& AssetManager = UAssetManager::Get();
-	if (AssetManager.IsValid())
+	if (UAssetManager::IsInitialized())
 	{
 		FString PackagePath = UFlibAssetManageHelper::LongPackageNameToPackagePath(InPackageName);
 		{
@@ -1572,7 +1575,7 @@ TArray<UObject*> UFlibAssetManageHelper::FindClassObjectInPackage(UPackage* Pack
 {
 	TArray<UObject*> ResultObjects;
 	TArray<UObject*> ObjectsInPackage;
-	GetObjectsWithOuter(Package, ObjectsInPackage, false);
+	GetObjectsWithOuter(Package, ObjectsInPackage, EGetObjectsFlags::None);
 	for ( auto ObjIt = ObjectsInPackage.CreateConstIterator(); ObjIt; ++ObjIt )
 	{
 		if((*ObjIt)->GetClass()->IsChildOf(FindClass))

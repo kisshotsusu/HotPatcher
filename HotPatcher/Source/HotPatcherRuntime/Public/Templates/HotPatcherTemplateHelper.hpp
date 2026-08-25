@@ -7,6 +7,7 @@
 #include "Resources/Version.h"
 #include "Misc/CommandLine.h"
 
+
 // cpp standard
 #include <typeinfo>
 #include <cctype>
@@ -354,7 +355,7 @@ namespace THotPatcherTemplateHelper
 			);
 		}
 
-		UEnumIns->SetEnums(EnumNamePairs,UEnum::ECppForm::EnumClass,EEnumFlags::None,true);
+		UEnumIns->SetEnums(EnumNamePairs,UEnum::ECppForm::EnumClass,UEnum::EUnderlyingType::int64,EEnumFlags::None,UEnum::EAddMaxKeyIfMissing::Yes);
 
 		return EnumNamePairs;
 	}

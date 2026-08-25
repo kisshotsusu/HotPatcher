@@ -198,7 +198,7 @@ void USingleCookerProxy::CleanClusterCachedPlatformData(const FCookCluster& Cook
 	for(auto Package:PreCachePackages)
 	{
 		TArray<UObject*> ExportMap;
-		GetObjectsWithOuter(Package,ExportMap,true);
+		GetObjectsWithOuter(Package,ExportMap,EGetObjectsFlags::IncludeNestedObjects);
 		for(const auto& ExportObj:ExportMap)
 		{
 			SCOPED_NAMED_EVENT_F(TEXT("%s"), FColor::Red, *ExportObj->GetName());

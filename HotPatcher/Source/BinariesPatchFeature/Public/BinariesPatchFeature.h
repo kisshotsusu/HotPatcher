@@ -17,7 +17,7 @@ enum class EBinariesPatchFeature:uint8
 };
 ENUM_RANGE_BY_COUNT(EBinariesPatchFeature, EBinariesPatchFeature::Count);
 
-struct IBinariesDiffPatchFeature: public IModularFeature
+struct BINARIESPATCHFEATURE_API IBinariesDiffPatchFeature: public IModularFeature
 {
 	virtual ~IBinariesDiffPatchFeature(){};
 	virtual bool CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>& OldData, TArray<uint8>& OutPatch) = 0;

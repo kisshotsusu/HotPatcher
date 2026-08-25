@@ -410,7 +410,7 @@ bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 {
 	if(bStorageConcurrent) 
 	{ 
-		GIsSavingPackage = true;
+		UE::SetIsSavingPackage(true);
 		GIsCookerLoadingPackage = true;
 	}
 	ParallelFor(Packages.Num(), [&](int32 AssetIndex)
@@ -436,7 +436,7 @@ bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 	},GForceSingleThread ? true : !bStorageConcurrent);
 	if(bStorageConcurrent) 
 	{
-		GIsSavingPackage = false;
+		UE::SetIsSavingPackage(false);
 		GIsCookerLoadingPackage = true;
 	}
 	return true;
@@ -645,7 +645,7 @@ bool UFlibHotPatcherCoreHelper::RunCmdlet(const FString& CmdletName,const FStrin
 		CmdletNameStr.Append(TEXT("Commandlet"));
 	}
 	UCommandlet* CmdletCDO = nullptr;
-	UClass* SPCTCmdletClass = FindObject<UClass>(nullptr, *CmdletNameStr, false);
+	UClass* SPCTCmdletClass = FindObject<UClass>(nullptr, *CmdletNameStr, EFindObjectFlags::None);
 	if(SPCTCmdletClass && SPCTCmdletClass->IsChildOf(UCommandlet::StaticClass()))
 	{
 		// CmdletCDO = Cast<UCommandlet>(SPCTCmdletClass->GetDefaultObject());
@@ -872,11 +872,7 @@ FString UFlibHotPatcherCoreHelper::GetUnrealPakBinary()
 	return FPaths::Combine(
         FPaths::ConvertRelativePathToFull(FPaths::EngineDir()),
         TEXT("Binaries"),
-#if PLATFORM_64BITS	
         TEXT("Win64"),
-#else
-        TEXT("Win32"),
-#endif
         TEXT("UnrealPak.exe")
     );
 #elif PLATFORM_MAC
@@ -902,11 +898,7 @@ FString UFlibHotPatcherCoreHelper::GetUECmdBinary()
 	
 #if PLATFORM_WINDOWS
 	FString PlatformName;
-	#if PLATFORM_64BITS	
-		PlatformName = TEXT("Win64");
-	#else
-		PlatformName = TEXT("Win32");
-	#endif
+	PlatformName = TEXT("Win64");
 
 	return FPaths::Combine(
         FPaths::ConvertRelativePathToFull(FPaths::EngineDir()),
@@ -2203,7 +2195,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
 			
     		uint32 SaveFlags = UFlibHotPatcherCoreHelper::GetCookSaveFlag(Package,true,bStorageConcurrent,false);
     		TArray<UObject*> ObjectsInPackage;
-    		GetObjectsWithOuter(Package,ObjectsInPackage,true);
+    		GetObjectsWithOuter(Package,ObjectsInPackage,EGetObjectsFlags::IncludeNestedObjects);
     		for(const auto& ExportObj:ObjectsInPackage)
     		{
     			if(OnPreCacheObjectWithOuter)
@@ -2420,13 +2412,9 @@ void UFlibHotPatcherCoreHelper::WaitObjectsCachePlatformDataComplete(TSet<UObjec
 uint32 UFlibHotPatcherCoreHelper::GetCookSaveFlag(UPackage* Package, bool bUnversioned, bool bStorageConcurrent,
                                                   bool CookLinkerDiff)
 {
+	(void)CookLinkerDiff;
 	uint32 SaveFlags = SAVE_KeepPersistentGUID | SAVE_Async | (bUnversioned ? SAVE_Unversioned : 0);
 
-	// bool CookLinkerDiff = false;
-	if(CookLinkerDiff)
-	{
-		SaveFlags |= SAVE_CompareLinker;
-	}
 	if (bStorageConcurrent)
 	{
 		SaveFlags |= SAVE_Concurrent;
@@ -2491,11 +2479,6 @@ FString UFlibHotPatcherCoreHelper::GetSavePackageResultStr(ESavePackageResult Re
 			Str = TEXT("Error");
 			break;
 		}
-	case ESavePackageResult::DifferentContent:
-		{
-			Str = TEXT("DifferentContent");
-			break;
-		}
 	case ESavePackageResult::GenerateStub:
 		{
 			Str = TEXT("GenerateStub");
@@ -2514,11 +2497,6 @@ FString UFlibHotPatcherCoreHelper::GetSavePackageResultStr(ESavePackageResult Re
 	case ESavePackageResult::ContainsEditorOnlyData:
 		{
 			Str = TEXT("ContainsEditorOnlyData");
-			break;
-		}
-	case ESavePackageResult::ReferencedOnlyByEditorOnlyData:
-		{
-			Str = TEXT("ReferencedOnlyByEditorOnlyData");
 			break;
 		}
 	}
