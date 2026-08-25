@@ -1,6 +1,7 @@
 // Copyright (c) rebuilt per imzlp article 25136.
 #include "Modules/ModuleManager.h"
 #include "Features/IModularFeatures.h"
+#include "Logging/LogMacros.h" // DEFINE_LOG_CATEGORY_STATIC
 #include "HDiffPatchFeatureImpl.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHDiffPatchUE, Log, All);

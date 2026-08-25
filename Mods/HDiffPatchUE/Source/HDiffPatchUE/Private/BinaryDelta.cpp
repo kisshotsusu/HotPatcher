@@ -8,6 +8,20 @@
 
 bool FBinaryDelta::CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>& OldData, TArray<uint8>& OutPatch)
 {
+	// 硬性上限：本实现把 patch 与中间缓冲都放在 TArray<uint8>（int32 索引，上限约 2 GiB）。
+	// 单个文件达到该量级时 Reserve/Append 会整数溢出并触发 TArray 断言崩溃，而非“内存不足”。
+	// 因此这里在入口安全退出。NOTE: 整 pak/utoc（数 GiB）的差分需要分块流式 CreateDiff，
+	// 当前编辑器侧产出 .patch 不支持 >~2GiB 单文件；运行时 apply（PatchDiffToFile）无此限制。
+	static const int64 kMaxFileBytes = static_cast<int64>(MAX_int32) - 1024;
+	if (NewData.Num() > kMaxFileBytes || OldData.Num() > kMaxFileBytes)
+	{
+		UE_LOG(LogTemp, Error,
+			TEXT("BinaryDelta::CreateDiff: 单个文件超过约 2 GiB 上限（New=%lld, Old=%lld），"
+			     "TArray<uint8> 为 int32 索引无法容纳，已安全退出（未崩溃）。整容器差分需流式 CreateDiff。"),
+			static_cast<int64>(NewData.Num()), static_cast<int64>(OldData.Num()));
+		return false;
+	}
+
 	OutPatch.Empty();
 	OutPatch.Reserve(NewData.Num() + 64);
 
@@ -26,6 +40,9 @@ bool FBinaryDelta::CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>&
 	const int64 NewNum = NewData.Num();
 
 	// Index of Old: first position of each BlockSize-window hash. Bounds memory to ~|Old|/BlockSize entries.
+	// NOTE: 只存每个哈希的【首次】出现位置。FNV-1a 为 32 位，对大 Old（>2GiB 有数百万窗口）碰撞概率不低；
+	// 碰撞时真实可 COPY 的块会被当 INSERT，patch 体积膨胀。逐字节扩展（下方 while 循环）保证不会产生错误
+	// 数据，仅压缩率退化（明显弱于真 HDiffPatch）。若要逼近其压缩率，需更强哈希或全位置索引+最长匹配。
 	TMap<uint32, int64> OldHashToPos;
 	if (OldNum >= BlockSize)
 	{
@@ -286,7 +303,8 @@ bool FBinaryDelta::PatchDiffToFile(const FString& OldFilePath, const FString& Pa
 			{
 				const int64 ToRead = static_cast<int64>(FMath::Min<uint64>(Remaining, static_cast<uint64>(Chunk)));
 				OldHandle->Seek(static_cast<int64>(Offset + (Length - Remaining)));
-				if (OldHandle->Read(B, ToRead) != ToRead) { bOk = false; break; }
+				// 与 INSERT 分支一致，用 ReadExact 处理磁盘可能的部分读，避免单次 Read 不足即误判失败
+				if (!ReadExact(OldHandle.Get(), B, ToRead)) { bOk = false; break; }
 				if (!WriteAll(B, ToRead)) { bOk = false; break; }
 				Remaining -= static_cast<uint64>(ToRead);
 			}
