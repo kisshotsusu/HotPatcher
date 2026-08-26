@@ -39,7 +39,7 @@ struct IBinariesDiffPatchFeature: public IModularFeature
 	// 默认实现先把文件读入内存再调 PatchDiff（与旧行为一致，仍受 ~2 GiB 上限限制）；
 	// 支持流式的能力（如 HDiffPatchUE）重写此函数，改为按固定大小分块直接从磁盘读写，
 	// 解除大文件的内存上限。声明为非纯虚，保证已有实现无需改动即可编译。
-	virtual bool PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath);
+	virtual BINARIESPATCHFEATURE_API bool PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath);
 };
 
 class FBinariesPatchFeatureModule : public IModuleInterface

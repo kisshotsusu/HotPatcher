@@ -2,32 +2,14 @@
 #include "Modules/ModuleManager.h"
 #include "Features/IModularFeatures.h"
 #include "Logging/LogMacros.h" // DEFINE_LOG_CATEGORY_STATIC
-#include "Misc/FileHelper.h"
 #include "HDiffPatchFeatureImpl.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHDiffPatchUE, Log, All);
 
-// IBinariesDiffPatchFeature::PatchDiffToFile 的默认实现定义于 BinariesPatchFeature 模块，
-// 但该接口未导出符号，跨模块链接会失败（LNK2001）。在此提供一份本地定义满足 vtable 引用。
-// 语义与上游一致：整文件读入内存后走 PatchDiff（受 ~2 GiB 上限），仅作兜底；本插件实际
-// 使用 FHDiffPatchFeature::PatchDiffToFile 的流式重写。
-bool IBinariesDiffPatchFeature::PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath)
-{
-	TArray<uint8> OldData, PatchData, NewData;
-	if (!FFileHelper::LoadFileToArray(OldData, *OldFilePath))
-	{
-		return false;
-	}
-	if (!FFileHelper::LoadFileToArray(PatchData, *PatchFilePath))
-	{
-		return false;
-	}
-	if (!PatchDiff(OldData, PatchData, NewData) || NewData.Num() == 0)
-	{
-		return false;
-	}
-	return FFileHelper::SaveArrayToFile(NewData, *OutNewFilePath);
-}
+// 注意：IBinariesDiffPatchFeature::PatchDiffToFile 的默认实现已在 BinariesPatchFeature 模块
+// 中定义，并通过 BINARIESPATCHFEATURE_API 导出（HDiffPatchUE 已将其列为公共依赖）。
+// 因此此处【不要】再重复定义该接口函数，否则单体打包时两份定义会触发 LNK2005/LNK1169。
+// 本模块实际使用 FHDiffPatchFeature（见 HDiffPatchFeatureImpl.cpp）的流式重写版本。
 
 class FHDiffPatchUEModule : public IModuleInterface
 {
