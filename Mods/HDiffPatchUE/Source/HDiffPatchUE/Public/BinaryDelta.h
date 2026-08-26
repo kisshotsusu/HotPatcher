@@ -1,12 +1,12 @@
-// Copyright (c) rebuilt per imzlp article 25136 (https://imzlp.com/posts/25136/).
-// Self-contained binary delta: a byte-level copy/insert (BSDIFF-lite) encoding.
+// 版权：依据 imzlp 文章 25136（https://imzlp.com/posts/25136/）重建实现。
+// 自包含的二进制差分：一种字节级 copy/insert（BSDIFF-lite）编码。
 //
-// Format-agnostic: the algorithm only ever sees byte arrays, so it works for ANY file,
-// including Unreal .pak containers and IoStore .utoc/.ucas pairs. "Binary file merge" here
-// means: given the OLD base file and a .patch produced by CreateDiff, reconstruct the NEW file.
+// 与格式无关：算法只处理字节数组，因此适用于任意文件，包括 Unreal 的 .pak 容器
+// 与 IoStore 的 .utoc/.ucas 配对。此处的“二进制文件合并”指：给定 OLD 基础文件与
+// CreateDiff 产出的 .patch，重建出 NEW 文件。
 //
-// The pair is symmetric: HotPatcher's GenerateBinariesPatch (editor) calls CreateDiff(New, Old)
-// and the CloudUpdate client (packaged game) calls PatchDiff(Old, Patch) to rebuild the file.
+// 两侧对称：HotPatcher 编辑器侧 GenerateBinariesPatch 调用 CreateDiff(New, Old) 产出补丁，
+// 运行时客户端（如 CloudUpdate，打包后的游戏）调用 PatchDiff(Old, Patch) 重建文件。
 #pragma once
 
 #include "CoreMinimal.h"
@@ -70,16 +70,16 @@ namespace BinaryDeltaPrivate
 class FBinaryDelta
 {
 public:
-	// NewData, OldData -> OutPatch. Always succeeds (output is a valid patch for the given inputs).
+	// NewData, OldData -> OutPatch（产出二进制补丁）。只要输入合法，必定成功产出可用补丁。
+	// 注意：单文件超过约 2 GiB 时安全退出（详见 .cpp 内的 kMaxFileBytes 上限说明）。
 	static bool CreateDiff(const TArray<uint8>& NewData, const TArray<uint8>& OldData, TArray<uint8>& OutPatch);
 
-	// OldData, PatchData -> OutNewData. Returns false if the patch is corrupt or OldSize mismatches.
+	// OldData, PatchData -> OutNewData。补丁损坏或基础文件大小与补丁记录的 OldSize 不符时返回 false。
+	// 整文件缓冲，仅支持 ~2 GiB 以下文件；更大文件请使用 PatchDiffToFile。
 	static bool PatchDiff(const TArray<uint8>& OldData, const TArray<uint8>& PatchData, TArray<uint8>& OutNewData);
 
-	// Streaming file-to-file apply. Reads Old and Patch via file handles in fixed-size chunks
-	// (~a few MiB peak memory) and writes New to disk in chunks. Unlike PatchDiff (which buffers
-	// everything in a TArray and is limited to ~2 GiB files), this handles arbitrarily large files.
-	// Returns false if the patch is corrupt, the base file size mismatches the patch's OldSize,
-	// or any I/O fails.
+	// 流式按文件重建：通过文件句柄以固定大小分块读写 Old 与 Patch（峰值内存仅约数 MiB），
+	// 并把 New 分块写入磁盘。与 PatchDiff（整文件缓冲、限制 ~2 GiB）不同，本函数可处理任意大文件。
+	// 补丁损坏、基础文件大小与补丁的 OldSize 不符、或任意 I/O 失败时返回 false。
 	static bool PatchDiffToFile(const FString& OldFilePath, const FString& PatchFilePath, const FString& OutNewFilePath);
 };

@@ -18,7 +18,7 @@ bool FHDiffPatchFeature::PatchDiffToFile(const FString& OldFilePath, const FStri
 
 FString FHDiffPatchFeature::GetFeatureName() const
 {
-	// Matches the name the original hxhb/HDiffPatchUE exposed, so any existing HotPatcher
-	// "Binaries Patch Type" selection / BinariesPatchFeatureName setting keeps working.
+	// 与原 hxhb/HDiffPatchUE 暴露的特性名保持一致，确保 HotPatcher 中已有的
+	// “Binaries Patch Type” 选择 / BinariesPatchFeatureName 设置继续可用。
 	return TEXT("HDiffPatchUE");
 }

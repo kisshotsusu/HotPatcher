@@ -1,11 +1,10 @@
-// Copyright (c) rebuilt per imzlp article 12188 (https://imzlp.com/posts/12188/).
-// Runtime Pak creation / merge. Compiled only when HDIFFPATCHUE_ENABLE_PAK_REBUILD=1.
+// 版权：依据 imzlp 文章 12188（https://imzlp.com/posts/12188/）重建实现。
+// 运行时 Pak 创建 / 合并。仅在 HDIFFPATCHUE_ENABLE_PAK_REBUILD=1 时编译。
 //
-// >>> VERIFY AGAINST YOUR UE 5.8 ENGINE HEADERS BEFORE USE <<<
-// This uses FPakFile::EncodePakEntriesIntoIndex, FPakInfo, FPakEntry and FPakFile enumeration.
-// Their signatures/members DRIFT between UE versions. The calls below follow the article's UE5
-// signature; if UE 5.8 differs, adjust the flagged spots. When in doubt, keep the define at 0:
-// the core binary-delta (article 25136) is fully functional without this file.
+// >>> 使用前请针对你的 UE 5.8 引擎头文件核对 <<<
+// 本实现用到 FPakFile::EncodePakEntriesIntoIndex、FPakInfo、FPakEntry 及 FPakFile 枚举。
+// 这些接口签名/成员会随 UE 版本漂移。下方调用沿用文章中的 UE5 签名；若 UE 5.8 不同，
+// 请调整文中标注处。拿不准时请保持该宏为 0：核心的二进制差分功能（文章 25136）不依赖本文件。
 
 #if HDIFFPATCHUE_ENABLE_PAK_REBUILD
 
@@ -25,7 +24,7 @@ bool FBinaryMerge::BuildPak(const FString& OutputPak, const TArray<FBinaryMergeP
 		return false;
 	}
 
-	// ---- 1) Serialize file contents; build FPakEntry per file ----
+	// ---- 1) 序列化文件内容；为每个文件构造 FPakEntry ----
 	TArray<FPakEntry> PakEntries;
 	PakEntries.Reserve(Entries.Num());
 
@@ -33,11 +32,11 @@ bool FBinaryMerge::BuildPak(const FString& OutputPak, const TArray<FBinaryMergeP
 	for (const FBinaryMergePakEntry& E : Entries)
 	{
 		FPakEntry Entry;
-		Entry.Offset = 0;                 // real offset lives in the index; set below for the pre-index body
+		Entry.Offset = 0;                 // 真实偏移位于索引中，下方“索引前区域”再赋值
 		Entry.Size = E.Data.Num();
 		Entry.UncompressedSize = E.Data.Num();
-		Entry.CompressionMethod = NAME_None;   // UE5: FName; on older engines this is a uint8 index -> adapt
-		Entry.Flags = FPakEntry::Flag_None;    // verify enum name on 5.8 (FPakEntry::FlagType)
+		Entry.CompressionMethod = NAME_None;   // UE5 中为 FName；更老引擎是 uint8 索引，需适配
+		Entry.Flags = FPakEntry::Flag_None;    // 请核对 UE 5.8 的枚举名（FPakEntry::FlagType）
 		FSHA1::HashBuffer(E.Data.GetData(), static_cast<uint64>(E.Data.Num()), Entry.Hash.Hash);
 
 		Entry.Offset = Body.Num();        // content offset within the pre-index region
@@ -45,7 +44,7 @@ bool FBinaryMerge::BuildPak(const FString& OutputPak, const TArray<FBinaryMergeP
 		PakEntries.Add(Entry);
 	}
 
-	// ---- 2) Build FPakInfo and encode the index ----
+	// ---- 2) 构造 FPakInfo 并对索引编码 ----
 	FPakInfo Info;
 	Info.Magic = FPakInfo::PakFile_Magic;
 	Info.Version = FPakInfo::PakFile_Version_Latest;   // or a specific FPakInfo::PakFile_Version_* if needed
@@ -63,7 +62,7 @@ bool FBinaryMerge::BuildPak(const FString& OutputPak, const TArray<FBinaryMergeP
 	int32 NumEncodedEntries = 0;
 	int32 NumDeletedEntries = 0;
 
-	// ReadNextEntryFunction: (int32 Index, FPakEntry& OutEntry, FString& OutPath, bool& OutIsDeleted)
+	// ReadNextEntry 回调：(int32 Index, FPakEntry& OutEntry, FString& OutPath, bool& OutIsDeleted)
 	auto ReadNextEntry = [&](int32 Index, FPakEntry& OutEntry, FString& OutPath, bool& OutIsDeleted)
 	{
 		OutEntry = PakEntries[Index];
@@ -87,7 +86,7 @@ bool FBinaryMerge::BuildPak(const FString& OutputPak, const TArray<FBinaryMergeP
 		nullptr,            // collision detection map (optional)
 		Info.Version);      // PakFileVersion (last param in the article's UE5 signature)
 
-	// ---- 3) Finalize index offset/size/hash, then write [Body][EncodedIndex][FPakInfo] ----
+	// ---- 3) 定稿索引偏移/大小/哈希，然后写出 [Body][EncodedIndex][FPakInfo] ----
 	Info.IndexOffset = Body.Num();
 	Info.IndexSize = EncodedIndex.Num();
 	FSHA1::HashBuffer(EncodedIndex.GetData(), static_cast<uint64>(EncodedIndex.Num()), Info.IndexHash.Hash);
@@ -118,13 +117,13 @@ bool FBinaryMerge::MergePaks(const FString& OutputPak, const TArray<FString>& In
 		{
 			continue;
 		}
-		// Enumerate every file in the source pak (verify GetFileList name on 5.8).
+		// 枚举源 pak 中的每个文件（请核对 UE 5.8 的 GetFileList 名称）。
 		TArray<FString> FileList;
 		Pak->GetFileList(FileList);
 		for (const FString& Path : FileList)
 		{
 			TArray<uint8> Bytes;
-			if (Pak->ReadFile(*Path, Bytes))   // verify ReadFile signature on 5.8
+			if (Pak->ReadFile(*Path, Bytes))   // 请核对 UE 5.8 的 ReadFile 签名
 			{
 				FBinaryMergePakEntry E;
 				E.MountPath = Path;

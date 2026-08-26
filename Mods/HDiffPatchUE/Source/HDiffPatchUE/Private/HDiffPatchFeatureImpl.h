@@ -4,7 +4,7 @@
 #include "BinariesPatchFeature.h" // IBinariesDiffPatchFeature, BINARIES_DIFF_PATCH_FEATURE_NAME
 #include "BinaryDelta.h"
 
-// Concrete IBinariesDiffPatchFeature backed by the self-contained FBinaryDelta.
+// 基于自包含 FBinaryDelta 的具体 IBinariesDiffPatchFeature 实现（特性名 "HDiffPatchUE"）。
 class FHDiffPatchFeature : public IBinariesDiffPatchFeature
 {
 public:

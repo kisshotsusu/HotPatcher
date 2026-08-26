@@ -12,7 +12,7 @@ public:
 	virtual void StartupModule() override
 	{
 		Feature = MakeShared<FHDiffPatchFeature>();
-		// Register under the same Modular Feature name HotPatcher's GenerateBinariesPatch queries.
+		// 以与 HotPatcher 的 GenerateBinariesPatch 查询相同的 Modular Feature 名注册本实现。
 		IModularFeatures::Get().RegisterModularFeature(BINARIES_DIFF_PATCH_FEATURE_NAME, Feature.Get());
 	#if HDIFFPATCHUE_ENABLE_PAK_REBUILD
 		const TCHAR* PakRebuildStatus = TEXT("enabled");
