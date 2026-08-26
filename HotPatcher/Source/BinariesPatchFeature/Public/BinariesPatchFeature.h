@@ -22,7 +22,7 @@ ENUM_RANGE_BY_COUNT(EBinariesPatchFeature, EBinariesPatchFeature::Count);
 // 二进制差分补丁特性接口：由具体实现（如 HDiffPatchUE）注册到 IModularFeatures，
 // HotPatcher 编辑器侧（GenerateBinariesPatch）调用 CreateDiff 产出 .patch，
 // 运行时客户端（如 CloudUpdate）调用 PatchDiff/PatchDiffToFile 重建新文件。
-struct BINARIESPATCHFEATURE_API IBinariesDiffPatchFeature : public IModularFeature
+struct IBinariesDiffPatchFeature: public IModularFeature
 {
 	virtual ~IBinariesDiffPatchFeature(){};
 
