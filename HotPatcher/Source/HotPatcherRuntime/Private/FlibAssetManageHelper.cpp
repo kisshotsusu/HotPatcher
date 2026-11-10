@@ -2,6 +2,7 @@
 
 
 #include "FlibAssetManageHelper.h"
+#include "CoreGlobals.h"
 #include "AssetManager/FAssetDependenciesInfo.h"
 #include "AssetManager/FAssetDependenciesDetail.h"
 #include "AssetManager/FFileArrayDirectoryVisitor.hpp"
@@ -1410,7 +1411,7 @@ TArray<UPackage*> UFlibAssetManageHelper::LoadPackagesForCooking(const TArray<FS
 {
 	SCOPED_NAMED_EVENT_TEXT("LoadPackagesForCooking",FColor::Red);
 	TArray<UPackage*> AllPackages;
-	GIsCookerLoadingPackage = true;
+	UE::SetIsCookerLoadingPackage(true);
 	for(const auto& Asset:SoftObjectPaths)
 	{
 		UPackage* Package = UFlibAssetManageHelper::GetPackage(*Asset.GetLongPackageName());
@@ -1444,7 +1445,7 @@ TArray<UPackage*> UFlibAssetManageHelper::LoadPackagesForCooking(const TArray<FS
 #endif
 		}
 	}
-	GIsCookerLoadingPackage = false;
+	UE::SetIsCookerLoadingPackage(false);
 	return AllPackages;
 }
 

@@ -1,6 +1,7 @@
 // Copyright 2019 Lipeng Zha, Inc. All Rights Reserved.
 
 #include "HotPatcherEditor.h"
+#include "CoreGlobals.h"
 #include "UObject/ObjectSaveContext.h"
 #include "HotPatcherStyle.h"
 #include "HotPatcherCommands.h"
@@ -645,7 +646,7 @@ void FHotPatcherEditorModule::OnCookAndPakPlatform(ETargetPlatform Platform, boo
 
 void FHotPatcherEditorModule::OnObjectPreSave(UObject* ObjectSaved, FObjectPreSaveContext SaveContext)
 {
-	if (GIsCookerLoadingPackage)
+	if (UE::GetIsCookerLoadingPackage())
 	{
 		// This is the cooker saving a cooked package, ignore
 		return;

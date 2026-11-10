@@ -257,7 +257,7 @@ public:
 
 	static void DeleteDirectory(const FString& Dir);
 
-	static int32 GetMemoryMappingAlignment(const FString& PlatformName);
+	static int64 GetMemoryMappingAlignment(const FString& PlatformName);
 
 	static void SaveGlobalShaderMapFiles(const TArrayView<const ITargetPlatform* const>& Platforms,const FString& BaseOutputDir);
 

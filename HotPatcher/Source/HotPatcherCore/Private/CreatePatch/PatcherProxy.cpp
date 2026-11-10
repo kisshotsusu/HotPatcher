@@ -1121,7 +1121,7 @@ namespace PatchWorker
 			{
 				FString PlatformName = THotPatcherTemplateHelper::GetEnumNameByValue(PakFileProxy.Platform);
 				TArray<FString> UnrealPakCommandletOptions;
-				UnrealPakCommandletOptions.Add(FString::Printf(TEXT("-AlignForMemoryMapping=%d"),UFlibHotPatcherCoreHelper::GetMemoryMappingAlignment(PlatformName)));
+				UnrealPakCommandletOptions.Add(FString::Printf(TEXT("-AlignForMemoryMapping=%lld"),UFlibHotPatcherCoreHelper::GetMemoryMappingAlignment(PlatformName)));
 				// can override
 				UnrealPakCommandletOptions.Append(UnrealPakCommandletGeneralOptions);
 				UnrealPakCommandletOptions.Add(UFlibHotPatcherCoreHelper::GetEncryptSettingsCommandlineOptions(Context.GetSettingObject()->GetEncryptSettings(),UFlibHotPatcherCoreHelper::Conv2IniPlatform(PlatformName)));
@@ -1247,7 +1247,7 @@ namespace PatchWorker
 					PlatformContainer = &DefaultPlatformContainer;
 				}
 				TArray<FString> FinalIoStoreCommandletOptions;
-				FinalIoStoreCommandletOptions.Add(FString::Printf(TEXT("-AlignForMemoryMapping=%d"),UFlibHotPatcherCoreHelper::GetPlatformByName(PlatformName)->GetMemoryMappingAlignment()));
+				FinalIoStoreCommandletOptions.Add(FString::Printf(TEXT("-AlignForMemoryMapping=%lld"),UFlibHotPatcherCoreHelper::GetPlatformByName(PlatformName)->GetMemoryMappingAlignment()));
 				FinalIoStoreCommandletOptions.Append(AdditionalIoStoreCommandletOptions);
 				FString IoStoreCommandletOptions;
 				for(const auto& Option:FinalIoStoreCommandletOptions) { IoStoreCommandletOptions+=FString::Printf(TEXT("%s "),*Option); }

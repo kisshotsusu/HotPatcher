@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "FlibHotPatcherCoreHelper.h"
+#include "CoreGlobals.h"
 #include "HotPatcherLog.h"
 #include "HotPatcherCore.h"
 #include "CreatePatch/FExportPatchSettings.h"
@@ -411,7 +412,7 @@ bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 	if(bStorageConcurrent) 
 	{ 
 		UE::SetIsSavingPackage(true);
-		GIsCookerLoadingPackage = true;
+		UE::SetIsCookerLoadingPackage(true);
 	}
 	ParallelFor(Packages.Num(), [&](int32 AssetIndex)
 	{
@@ -437,7 +438,7 @@ bool UFlibHotPatcherCoreHelper::CookPackages(const TArray<UPackage*> Packages,
 	if(bStorageConcurrent) 
 	{
 		UE::SetIsSavingPackage(false);
-		GIsCookerLoadingPackage = true;
+		UE::SetIsCookerLoadingPackage(true);
 	}
 	return true;
 }
@@ -570,9 +571,7 @@ bool UFlibHotPatcherCoreHelper::CookPackage(
 				Package->ClearPackageFlags(PKG_FilterEditorOnly);
 			}
 			
-			PRAGMA_DISABLE_DEPRECATION_WARNINGS
-			if (!bStorageConcurrent) { GIsCookerLoadingPackage = true; }
-			PRAGMA_ENABLE_DEPRECATION_WARNINGS
+			if (!bStorageConcurrent) { UE::SetIsCookerLoadingPackage(true); }
 			
 			FSavePackageArgs PackageArgs;
 			PackageArgs.TopLevelFlags = CookedFlags;
@@ -587,7 +586,7 @@ bool UFlibHotPatcherCoreHelper::CookPackage(
 			PackageArgs.ArchiveCookData = &CookData;
 			
 			FSavePackageResultStruct Result = GEditor->Save(Package,nullptr, *CookedSavePath, PackageArgs);
-			if (!bStorageConcurrent) { GIsCookerLoadingPackage = false; }
+			if (!bStorageConcurrent) { UE::SetIsCookerLoadingPackage(false); }
 			
 			bSuccessed = Result == ESavePackageResult::Success;
 
@@ -1391,9 +1390,9 @@ void UFlibHotPatcherCoreHelper::DeleteDirectory(const FString& Dir)
 	}
 }
 
-int32 UFlibHotPatcherCoreHelper::GetMemoryMappingAlignment(const FString& PlatformName)
+int64 UFlibHotPatcherCoreHelper::GetMemoryMappingAlignment(const FString& PlatformName)
 {
-	int32 result = 0;
+	int64 result = 0;
 	
 	ITargetPlatform* Platform =  UFlibHotPatcherCoreHelper::GetPlatformByName(PlatformName);
 	if(Platform)
@@ -2221,7 +2220,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
     				// We need a physics scene at save time in case code does traces during onsave events.
     				bInitializedPhysicsSceneForSave = GEditor->InitializePhysicsSceneForSaveIfNecessary(World, bForceInitializedWorld);
     	
-    				GIsCookerLoadingPackage = true;
+				UE::SetIsCookerLoadingPackage(true);
     				{
 						FObjectSaveContextData ContextData;
 						ContextData.SaveFlags = SaveFlags;
@@ -2234,7 +2233,7 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
     					World->PreSaveRoot(FObjectPreSaveRootContext(PreSaveRootContextData));
     					WorldsToPostSaveRoot.Add(World, PreSaveRootContextData);
     				}
-    				GIsCookerLoadingPackage = false;
+				UE::SetIsCookerLoadingPackage(false);
     			}
     			
     			if(ExportObj->GetClass()->GetName().Equals(TEXT("LandscapeComponent")) && bStorageConcurrent)
@@ -2265,14 +2264,14 @@ void UFlibHotPatcherCoreHelper::CacheForCookedPlatformData(
     				if (bStorageConcurrent)
     				{
     					SCOPED_NAMED_EVENT_TEXT("Export PreSave",FColor::Red);
-    					GIsCookerLoadingPackage = true;
+					UE::SetIsCookerLoadingPackage(true);
     					{
     						FObjectSaveContextData PreSaveContextData;
     						PreSaveContextData.SaveFlags = SaveFlags;
     						PreSaveContextData.TargetPlatform = Platform;
     						ExportObj->PreSave(FObjectPreSaveContext(PreSaveContextData));
     					}
-    					GIsCookerLoadingPackage = false;
+					UE::SetIsCookerLoadingPackage(false);
     				}
     				
     				// bool bIsTexture = ExportObj->IsA(UTexture::StaticClass());
